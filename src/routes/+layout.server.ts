@@ -1,10 +1,8 @@
 import type { LayoutServerLoad } from './$types'
-import { supabase } from '$lib/supabase'
 
-export const load: LayoutServerLoad = async () => {
-  const {
-    data: { session }
-  } = await supabase.auth.getSession()
-
-  return { session }
+export const load: LayoutServerLoad = async ({ locals }) => {
+  return {
+    session: locals.session,
+    user: locals.user
+  }
 }

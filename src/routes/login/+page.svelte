@@ -1,30 +1,43 @@
 <script lang="ts">
-  import { supabase } from '$lib/supabase'
-  import { goto } from '$app/navigation'
+  import { supabase } from '$lib/supabase';
+  import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
 
-  let email: string = ''
-  let password: string = ''
-  let error: string = ''
-  let cargando: boolean = false
+  // ✅ estados reactivos (Svelte 5 runes)
+  let email = $state('');
+  let password = $state('');
+  let error = $state('');
+  let cargando = $state(false);
 
+  // ✅ login
   async function login(): Promise<void> {
     if (!email || !password) {
-      error = 'Completá email y contraseña'
-      return
+      error = 'Completá email y contraseña';
+      return;
     }
-    cargando = true
-    error = ''
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
-    cargando = false
+
+    cargando = true;
+    error = '';
+
+    const { error: err } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    cargando = false;
+
     if (err) {
-      error = err.message
+      error = err.message;
     } else {
-      goto('/edificios')
+      goto(resolve('/dashboard'));
     }
   }
 
-  function handleKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Enter') login()
+  // ✅ FIX ESLINT: tipar evento desde el DOM
+  function handleKeydown(e: globalThis.KeyboardEvent): void {
+    if (e.key === 'Enter') {
+      login();
+    }
   }
 </script>
 
@@ -37,14 +50,15 @@
       bind:value={email}
       placeholder="Email"
       type="email"
-      on:keydown={handleKeydown}
+      onkeydown={handleKeydown}
       autocomplete="email"
     />
+
     <input
       bind:value={password}
       placeholder="Contraseña"
       type="password"
-      on:keydown={handleKeydown}
+      onkeydown={handleKeydown}
       autocomplete="current-password"
     />
 
@@ -52,7 +66,7 @@
       <p class="error">{error}</p>
     {/if}
 
-    <button on:click={login} disabled={cargando}>
+    <button onclick={login} disabled={cargando}>
       {cargando ? 'Ingresando...' : 'Ingresar'}
     </button>
   </div>

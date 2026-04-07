@@ -1,11 +1,13 @@
 <script lang="ts">
   import '../app.css';
 
-  const { data } = $props();
-
-  async function cerrarSesion(): Promise<void> {
-    ...
-  }
+  let { children } = $props();
 </script>
 
-<slot />
+<nav class="navbar">
+  <div class="brand">Control Accesos</div>
+</nav>
+
+<main class="container page">
+  {@render children()}
+</main>

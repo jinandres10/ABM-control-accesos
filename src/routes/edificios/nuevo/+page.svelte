@@ -1,10 +1,11 @@
 <script>
 	import { supabase } from '$lib/supabase';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
-	let nombre='';
-	let latitud='';
-	let longitud='';
+	let nombre = $state('');
+	let latitud = $state('');
+	let longitud = $state('');
 
 	async function guardar() {
 		await supabase.from('edificios').insert({
@@ -13,7 +14,7 @@
 			longitud
 		});
 
-		goto('/edificios');
+		goto(resolve('/edificios'));
 	}
 </script>
 
@@ -22,7 +23,7 @@
 <input bind:value={latitud} placeholder="Latitud" class="border p-2"/>
 <input bind:value={longitud} placeholder="Longitud" class="border p-2"/>
 
-<button class="bg-blue-600 text-white p-2" on:click={guardar}>
+<button class="bg-blue-600 text-white p-2" onclick={guardar}>
 Guardar
 </button>
 </div>
