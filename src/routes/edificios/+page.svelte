@@ -3,24 +3,45 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { Edificio, EdificioForm } from '$lib/types';
 	import type { PageData } from './$types';
-  import { browser } from '$app/environment';
+	import { browser } from '$app/environment';
 
-	// ✅ Svelte 5 props (reemplaza export let)
+	// ✅ Props tipadas
 	const { data } = $props<{ data: PageData }>();
 
-	// ✅ estados reactivos (RUNES MODE)
+	/* =========================
+	   ESTADOS
+	========================= */
+
 	let form = $state<EdificioForm>({
 		nombre: '',
 		latitud: '',
-		longitud: ''
+		longitud: '',
+		direccion: ''
 	});
 
 	let editandoId = $state<string | null>(null);
 	let error = $state('');
 	let cargando = $state(false);
+	let busqueda = $state('');
+
+	/* =========================
+	   DERIVED CORRECTO (🔥 CLAVE)
+	========================= */
+
+		let edificiosFiltrados = $derived(
+			busqueda.trim()
+				? data.edificios.filter((e: Edificio) =>
+						e.nombre.toLowerCase().includes(busqueda.toLowerCase())
+				)
+				: data.edificios
+		);
+
+	/* =========================
+	   CRUD
+	========================= */
 
 	async function guardar(): Promise<void> {
-		if (!form.nombre || !form.latitud || !form.longitud) {
+		if (!form.nombre || !form.latitud || !form.longitud || !form.direccion) {
 			error = 'Completá todos los campos';
 			return;
 		}
@@ -31,7 +52,8 @@
 		const payload = {
 			nombre: form.nombre,
 			latitud: parseFloat(form.latitud),
-			longitud: parseFloat(form.longitud)
+			longitud: parseFloat(form.longitud),
+			direccion: form.direccion
 		};
 
 		if (editandoId) {
@@ -63,7 +85,8 @@
 		form = {
 			nombre: e.nombre,
 			latitud: String(e.latitud),
-			longitud: String(e.longitud)
+			longitud: String(e.longitud),
+			direccion: e.direccion
 		};
 	}
 
@@ -85,7 +108,7 @@
 
 	function limpiar(): void {
 		editandoId = null;
-		form = { nombre: '', latitud: '', longitud: '' };
+		form = { nombre: '', latitud: '', longitud: '', direccion: '' };
 		error = '';
 	}
 
@@ -101,13 +124,16 @@
 <div class="page">
 	<h2>🏢 Edificios</h2>
 
+	<!-- ================= FORM ================= -->
+
 	<div class="form-card">
 		<h3>{editandoId ? 'Editar Edificio' : 'Nuevo Edificio'}</h3>
 
 		<div class="form-grid">
 			<input bind:value={form.nombre} placeholder="Nombre del edificio" />
-			<input bind:value={form.latitud} placeholder="Latitud" type="number" step="any" />
-			<input bind:value={form.longitud} placeholder="Longitud" type="number" step="any" />
+			<input bind:value={form.latitud} type="number" step="any" placeholder="Latitud" />
+			<input bind:value={form.longitud} type="number" step="any" placeholder="Longitud" />
+			<input bind:value={form.direccion} placeholder="Dirección" />
 		</div>
 
 		{#if error}
@@ -116,11 +142,7 @@
 
 		<div class="form-actions">
 			<button onclick={guardar} disabled={cargando}>
-				{cargando
-					? 'Guardando...'
-					: editandoId
-						? '💾 Actualizar'
-						: '➕ Agregar'}
+				{cargando ? 'Guardando...' : editandoId ? '💾 Actualizar' : '➕ Agregar'}
 			</button>
 
 			{#if editandoId}
@@ -131,6 +153,18 @@
 		</div>
 	</div>
 
+	<!-- ================= BUSCADOR ================= -->
+
+	<div class="buscador">
+		<input
+			type="text"
+			placeholder="🔍 Buscar edificio por nombre..."
+			bind:value={busqueda}
+		/>
+	</div>
+
+	<!-- ================= TABLA ================= -->
+
 	<div class="table-wrap">
 		<table>
 			<thead>
@@ -138,17 +172,39 @@
 					<th>Nombre</th>
 					<th>Latitud</th>
 					<th>Longitud</th>
+					<th>QR</th>
+					<th>Dirección</th>
 					<th>Creado</th>
 					<th>Acciones</th>
 				</tr>
 			</thead>
 
 			<tbody>
-				{#each data.edificios as e (e.id)}
+				{#each edificiosFiltrados as e (e.id)}
 					<tr class:editando={editandoId === e.id}>
 						<td>{e.nombre}</td>
 						<td>{e.latitud}</td>
 						<td>{e.longitud}</td>
+
+						<td>
+							<img
+								src={`https://quickchart.io/qr?size=120&text=${e.id}`}
+								alt="QR"
+								class="qr-img"
+							/>
+
+							<div class="qr-actions">
+								<a
+									href={`https://quickchart.io/qr?size=300&text=${e.id}`}
+									target="_blank"
+									download={`QR-${e.nombre}.png`}
+								>
+									⬇️ Descargar
+								</a>
+							</div>
+						</td>
+
+						<td>{e.direccion}</td>
 						<td>{formatFecha(e.creado_en)}</td>
 
 						<td class="acciones">
@@ -158,7 +214,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="5" class="vacio">
+						<td colspan="7" class="vacio">
 							No hay edificios registrados
 						</td>
 					</tr>
@@ -167,3 +223,45 @@
 		</table>
 	</div>
 </div>
+
+<style>
+	.qr-img {
+		border-radius: 8px;
+		border: 1px solid #ddd;
+		padding: 4px;
+		background: white;
+	}
+
+	.qr-actions {
+		margin-top: 6px;
+		font-size: 12px;
+		text-align: center;
+	}
+
+	.qr-actions a {
+		color: #2563eb;
+		text-decoration: none;
+	}
+
+	.qr-actions a:hover {
+		text-decoration: underline;
+	}
+
+	.buscador {
+		margin: 20px 0;
+	}
+
+	.buscador input {
+		width: 100%;
+		padding: 10px;
+		border-radius: 8px;
+		border: 1px solid #ddd;
+		font-size: 14px;
+	}
+
+	.buscador input:focus {
+		outline: none;
+		border-color: #2563eb;
+		box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+	}
+</style>
