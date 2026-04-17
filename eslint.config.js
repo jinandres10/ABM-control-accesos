@@ -1,16 +1,13 @@
 import js from '@eslint/js';
 import svelte from 'eslint-plugin-svelte';
 import tsParser from '@typescript-eslint/parser';
+import globals from 'globals';
 
 export default [
 
-  // ✅ reglas base JS
   js.configs.recommended,
-
-  // ✅ reglas oficiales Svelte
   ...svelte.configs['flat/recommended'],
 
-  // ✅ soporte TypeScript dentro de .svelte
   {
     files: ['**/*.svelte'],
     languageOptions: {
@@ -20,16 +17,11 @@ export default [
     }
   },
 
-  // ✅ ENTORNO NAVEGADOR (SOLUCION DEFINITIVA)
+  // ✅ ENTORNO NAVEGADOR COMPLETO
   {
     languageOptions: {
       globals: {
-        window: 'readonly',
-        document: 'readonly',
-        navigator: 'readonly',
-        confirm: 'readonly',
-        alert: 'readonly',
-        console: 'readonly'
+        ...globals.browser
       }
     }
   }

@@ -31,8 +31,26 @@ export const handle: Handle = async ({ event, resolve }) => {
     data: { user }
   } = await event.locals.supabase.auth.getUser()
 
+  // ✅ obtener perfil del usuario (si está logueado)
+  let perfil = null
+
+  if (user) {
+    const { data, error } = await event.locals.supabase
+      .from('perfiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    // ⚠️ no romper la app si falla (ej: perfil aún no creado)
+    if (!error) {
+      perfil = data
+    }
+  }
+
+  // ✅ guardar en locals (disponible en toda la app)
   event.locals.user = user
   event.locals.session = user ? { user } as any : null
+  event.locals.perfil = perfil
 
   // ✅ proteger rutas
   const protegida = RUTAS_PROTEGIDAS.some((ruta) =>
@@ -42,6 +60,12 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (protegida && !user) {
     throw redirect(303, '/login')
   }
+
+  if (event.url.pathname.startsWith('/admin')) {
+	if (!user || perfil?.rol !== 'admin') {
+		throw redirect(303, '/')
+	}
+}
 
   return resolve(event)
 }

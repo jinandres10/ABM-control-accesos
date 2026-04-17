@@ -44,6 +44,7 @@
 	"dependencies": {
 		"@supabase/ssr": "^0.10.0",
 		"@supabase/supabase-js": "^2.101.1",
-		"@sveltejs/adapter-vercel": "^6.3.3"
+		"@sveltejs/adapter-vercel": "^6.3.3",
+		"global": "^4.4.0"
 	}
 }
