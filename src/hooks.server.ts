@@ -47,6 +47,10 @@ export const handle: Handle = async ({ event, resolve }) => {
     }
   }
 
+  if (perfil?.bloqueada) {
+  throw redirect(303, '/bloqueado')
+}
+
   // ✅ guardar en locals (disponible en toda la app)
   event.locals.user = user
   event.locals.session = user ? { user } as any : null

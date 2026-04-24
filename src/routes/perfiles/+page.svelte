@@ -8,9 +8,11 @@
   const { data } = $props<{ data: PageData }>();
 
   // ✅ estados reactivos
+  
   let form = $state<PerfilForm>({
     nombre: '',
-    email: ''
+    email: '',
+    rol: 'viewer'
   });
 
   let editandoId = $state<string | null>(null);
@@ -59,7 +61,8 @@
     editandoId = p.id;
     form = {
       nombre: p.nombre ?? '',
-      email: p.email ?? ''
+      email: p.email ?? '',
+      rol: p.rol ?? 'viewer'
     };
   }
 
@@ -81,7 +84,7 @@
 
   function limpiar(): void {
     editandoId = null;
-    form = { nombre: '', email: '' };
+    form = { nombre: '', email: '', rol: 'viewer' };
     error = '';
   }
 

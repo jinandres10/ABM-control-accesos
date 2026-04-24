@@ -11,27 +11,59 @@
 
   // ✅ login
   async function login(): Promise<void> {
-    if (!email || !password) {
-      error = 'Completá email y contraseña';
-      return;
-    }
+      if (!email || !password) {
+        error = 'Completá email y contraseña';
+        return;
+      }
 
-    cargando = true;
-    error = '';
+      cargando = true;
+      error = '';
 
-    const { error: err } = await supabase.auth.signInWithPassword({
-      email,
-      password
+      // 🔎 1. validar estado (bloqueado, existe, etc.)
+      const check = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const checkData = await check.json();
+
+      if (checkData.error) {
+        cargando = false;
+        error = checkData.error;
+        return;
+      }
+
+      // 🔐 2. login REAL (este crea la sesión en el browser)
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email,
+        password
+  });
+
+  // ❌ fallo → sumar intento
+  if (err) {
+    await fetch('/api/login/fail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
     });
 
     cargando = false;
-
-    if (err) {
-      error = err.message;
-    } else {
-      goto(resolve('/dashboard'));
-    }
+    error = 'Credenciales incorrectas';
+    return;
   }
+
+  // ✅ login OK → resetear intentos
+  await fetch('/api/login/success', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+
+  cargando = false;
+
+  goto(resolve('/dashboard'));
+}
 
   // ✅ FIX ESLINT: tipar evento desde el DOM
   function handleKeydown(e: globalThis.KeyboardEvent): void {

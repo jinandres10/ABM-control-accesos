@@ -1,36 +1,27 @@
 <script lang="ts">
 	/* =========================
-	   TYPES
+	   MODELO
 	========================= */
-
-	// Modelo de usuario que viene del backend
 	type Usuario = {
 		id: string
 		email: string
 		nombre: string
-		rol: string
+		rol: 'admin' | 'operador' | 'viewer'
+		intentos_fallidos: number
+		bloqueada: boolean
 	}
 
 	/* =========================
-	   STATE (Svelte 5 runes)
+	   STATE (Svelte 5)
 	========================= */
-
-	// Lista de usuarios
 	let usuarios = $state<Usuario[]>([])
-
-	// Estados de UI
 	let cargando = $state(true)
 	let mensaje = $state('')
 
-	// Formulario de creación
 	let email = $state('')
 	let password = $state('')
 	let nombre = $state('')
-	let rol = $state('usuario')
-
-	/* =========================
-	   LOAD (onMount)
-	========================= */
+	let rol = $state<'admin' | 'operador' | 'viewer'>('viewer')
 
 	import { onMount } from 'svelte'
 
@@ -38,29 +29,23 @@
 		cargarUsuarios()
 	})
 
-	// Obtener usuarios desde API
+	/* =========================
+	   API
+	========================= */
+
 	async function cargarUsuarios() {
 		cargando = true
 
 		const res = await fetch('/api/admin/users')
 		const data = await res.json()
 
-		if (data.error) {
-			mensaje = data.error
-		} else {
-			usuarios = data.usuarios
-		}
+		if (data.error) mensaje = data.error
+		else usuarios = data.usuarios
 
 		cargando = false
 	}
 
-	/* =========================
-	   CREATE USER
-	========================= */
-
 	async function crear() {
-		mensaje = ''
-
 		const res = await fetch('/api/admin/users', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -74,10 +59,8 @@
 			return
 		}
 
-		// ✅ recargar lista SIN refresh de página
 		await cargarUsuarios()
 
-		// limpiar formulario
 		email = ''
 		password = ''
 		nombre = ''
@@ -86,12 +69,8 @@
 		mensaje = '✅ Usuario creado'
 	}
 
-	/* =========================
-	   UPDATE USER
-	========================= */
-
 	async function guardar(u: Usuario) {
-		const res = await fetch(`/api/admin/users/${u.id}`, {
+		await fetch(`/api/admin/users/${u.id}`, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -100,179 +79,207 @@
 			})
 		})
 
-		const data = await res.json()
-
-		if (data.error) {
-			alert(data.error)
-		} else {
-			alert('✅ Usuario actualizado')
-		}
+		alert('✅ Guardado')
 	}
-
-	/* =========================
-	   DELETE USER
-	========================= */
 
 	async function eliminar(id: string) {
 		if (!confirm('¿Eliminar usuario?')) return
 
-		const res = await fetch(`/api/admin/users/${id}`, {
+		await fetch(`/api/admin/users/${id}`, {
 			method: 'DELETE'
 		})
 
-		const data = await res.json()
-
-		if (data.error) {
-			alert(data.error)
-			return
-		}
-
-		// ✅ eliminar del estado sin recargar
 		usuarios = usuarios.filter(u => u.id !== id)
 	}
 
-
 	async function resetPassword(u: Usuario) {
-	const nueva = prompt(`Nueva contraseña para ${u.email}`)
+		const nueva = prompt(`Nueva contraseña para ${u.email}`)
+		if (!nueva) return
 
-	if (!nueva) return
+		await fetch(`/api/admin/users/${u.id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ password: nueva })
+		})
 
-	const res = await fetch(`/api/admin/users/${u.id}`, {
-		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ password: nueva })
-	})
-
-	const data = await res.json()
-
-	if (data.error) {
-		alert(data.error)
-	} else {
 		alert('🔑 Contraseña actualizada')
 	}
-	}
+
+	async function desbloquear(u: Usuario) {
+		await fetch(`/api/admin/users/${u.id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				bloqueada: false,
+				intentos_fallidos: 0
+			})
+	})
+
+	await cargarUsuarios()
+}
+
+
 </script>
 
-<!-- =========================
-     UI
-========================= -->
+<!-- CONTENEDOR -->
+<div class="max-w-6xl mx-auto p-6">
 
-<h2 class="text-xl font-bold mb-4">👥 Panel de Usuarios</h2>
+	<h2 class="text-2xl font-bold mb-6 text-gray-800">
+		👥 Panel de Usuarios
+	</h2>
 
-<!-- =========================
-     CREAR USUARIO
-========================= -->
+	<!-- FORM -->
+	<div class="bg-white shadow-lg rounded-2xl p-6 mb-6 border">
 
-<div class="mb-6 space-y-2">
-	<input
-		class="border p-2 block"
-		placeholder="Email"
-		bind:value={email}
-	/>
+		<h3 class="font-semibold mb-4 text-gray-700">
+			Crear usuario
+		</h3>
 
-	<input
-		class="border p-2 block"
-		type="password"
-		placeholder="Password"
-		bind:value={password}
-	/>
+		<div class="grid grid-cols-1 md:grid-cols-4 gap-3">
 
-	<input
-		class="border p-2 block"
-		placeholder="Nombre"
-		bind:value={nombre}
-	/>
+			<input
+				class="border rounded-lg p-2 w-full focus:ring-2 focus:ring-blue-500"
+				placeholder="Email"
+				bind:value={email}
+			/>
 
-	<select class="border p-2" bind:value={rol}>
-		<option value="usuario">viewer</option>
-		<option value="operador">operador</option>
-		<option value="admin">admin</option>
-	</select>
+			<input
+				class="border rounded-lg p-2 w-full focus:ring-2 focus:ring-blue-500"
+				type="password"
+				placeholder="Password"
+				bind:value={password}
+			/>
 
-	<button
-		class="bg-blue-600 text-white px-3 py-2"
-		onclick={crear}
-	>
-		Crear usuario
-	</button>
+			<input
+				class="border rounded-lg p-2 w-full focus:ring-2 focus:ring-blue-500"
+				placeholder="Nombre"
+				bind:value={nombre}
+			/>
 
-	<p>{mensaje}</p>
+			<select
+				class="border rounded-lg p-2 w-full"
+				bind:value={rol}
+			>
+				<option value="viewer">Viewer</option>
+				<option value="operador">Operador</option>
+				<option value="admin">Admin</option>
+			</select>
+
+		</div>
+
+		<button
+			class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+			onclick={crear}
+		>
+			Crear usuario
+		</button>
+
+		{#if mensaje}
+			<p class="mt-2 text-sm text-gray-600">{mensaje}</p>
+		{/if}
+	</div>
+
+	<!-- TABLA -->
+	<div class="bg-white shadow-lg rounded-2xl overflow-hidden border">
+
+		{#if cargando}
+			<p class="p-6">Cargando usuarios...</p>
+
+		{:else}
+
+			<table class="w-full text-sm">
+
+				<thead class="bg-gray-100 text-gray-600 text-xs uppercase">
+					<tr>
+						<th class="p-3 text-left">Email</th>
+						<th class="p-3">Nombre</th>
+						<th class="p-3">Rol</th>
+						<th class="p-3">Intentos</th>
+						<th class="p-3">Estado</th>
+						<th class="p-3">Acciones</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					{#each usuarios as u (u.id)}
+						<tr class="border-t hover:bg-gray-50">
+
+							<td class="p-3">{u.email}</td>
+
+							<td class="p-3">
+								<input
+									class="border rounded-md p-1 w-full text-sm"
+									bind:value={u.nombre}
+								/>
+							</td>
+
+							<td class="p-3">
+								<select
+									class="border rounded-md p-1 w-full text-sm"
+									bind:value={u.rol}
+								>
+									<option value="viewer">viewer</option>
+									<option value="operador">operador</option>
+									<option value="admin">admin</option>
+								</select>
+							</td>
+
+							<td class="p-3 text-center">
+								{u.intentos_fallidos ?? 0}
+							</td>
+
+							<td class="p-3 text-center">
+								{#if u.bloqueada}
+									<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">
+										Bloqueado
+									</span>
+								{:else}
+									<span class="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+										Activo
+									</span>
+								{/if}
+							</td>
+
+							<td class="p-3">
+								<div class="flex flex-wrap gap-2 justify-center">
+
+									<button
+										class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-xs"
+										onclick={() => guardar(u)}
+									>
+										Guardar
+									</button>
+
+									<button
+										class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-md text-xs"
+										onclick={() => resetPassword(u)}
+									>
+										Clave
+									</button>
+
+									<button
+										class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-xs"
+										onclick={() => desbloquear(u)}
+									>
+										Unlock
+									</button>
+
+									<button
+										class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-xs"
+										onclick={() => eliminar(u.id)}
+									>
+										Eliminar
+									</button>
+
+								</div>
+							</td>
+
+						</tr>
+					{/each}
+				</tbody>
+
+			</table>
+
+		{/if}
+	</div>
 </div>
-
-<hr class="my-4" />
-
-<!-- =========================
-     LISTADO
-========================= -->
-
-{#if cargando}
-	<p>Cargando usuarios...</p>
-
-{:else}
-	<table class="w-full border">
-		<thead>
-			<tr class="bg-gray-100">
-				<th>Email</th>
-				<th>Nombre</th>
-				<th>Rol</th>
-				<th>Acciones</th>
-			</tr>
-		</thead>
-
-		<tbody>
-			{#each usuarios as u (u.id)}
-				<tr class="border-t">
-
-					<!-- EMAIL -->
-					<td>{u.email}</td>
-
-					<!-- NOMBRE EDITABLE -->
-					<td>
-						<input
-							class="border p-1"
-							bind:value={u.nombre}
-						/>
-					</td>
-
-					<!-- ROL EDITABLE -->
-					<td>
-						<select
-							class="border p-1"
-							bind:value={u.rol}
-						>
-							<option value="viewer">viewer</option>
-							<option value="operador">operador</option>
-							<option value="admin">admin</option>
-						</select>
-					</td>
-
-					<!-- ACCIONES -->
-				<td class="space-x-2">
-
-					<button
-						class="bg-green-600 text-white px-2 py-1"
-						onclick={() => guardar(u)}
-					>
-						Guardar
-					</button>
-
-					<button
-						class="bg-yellow-500 text-white px-2 py-1"
-						onclick={() => resetPassword(u)}
-					>
-						Reset Pass
-					</button>
-
-					<button
-						class="bg-red-600 text-white px-2 py-1"
-						onclick={() => eliminar(u.id)}
-					>
-						Eliminar
-					</button>
-
-				</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
-{/if}

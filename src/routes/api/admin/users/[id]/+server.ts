@@ -14,7 +14,7 @@ console.log('SERVICE KEY:', SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20))
 
 
 /* =========================
-   UPDATE USER
+   UPDATE USER (flexible)
 ========================= */
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
@@ -29,11 +29,27 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     return json({ error: 'ID requerido' }, { status: 400 })
   }
 
-  const { nombre, rol } = await request.json()
+  // ✅ obtenemos TODOS los campos enviados
+  const body = await request.json()
+
+  // 🧠 construimos objeto dinámico SOLO con campos permitidos
+  const updateData: any = {}
+
+  if (body.nombre !== undefined) updateData.nombre = body.nombre
+  if (body.rol !== undefined) updateData.rol = body.rol
+
+  // 🔥 NUEVO: soporte desbloqueo
+  if (body.bloqueada !== undefined) updateData.bloqueada = body.bloqueada
+  if (body.intentos_fallidos !== undefined) updateData.intentos_fallidos = body.intentos_fallidos
+
+  // ⚠️ seguridad: evitar update vacío
+  if (Object.keys(updateData).length === 0) {
+    return json({ error: 'Nada para actualizar' }, { status: 400 })
+  }
 
   const { error } = await supabaseAdmin
     .from('perfiles')
-    .update({ nombre, rol })
+    .update(updateData)
     .eq('id', id)
 
   if (error) {
@@ -42,7 +58,6 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
   return json({ ok: true })
 }
-
 
 /* =========================
    DELETE USER
