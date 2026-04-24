@@ -1,115 +1,126 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from '@sveltejs/kit'
 import { createClient } from '@supabase/supabase-js'
-// ✅ IMPORT CORRECTO DE VARIABLES (SvelteKit)
 import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private'
 
-// 🔐 Cliente ADMIN (usa SERVICE ROLE KEY)
+// 🔐 cliente admin (bypass RLS)
 const supabaseAdmin = createClient(
-	SUPABASE_URL,
-	SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
 )
 
 console.log('URL:', SUPABASE_URL)
-console.log('KEY:', SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20))
-/**
- * ✅ UPDATE de usuario (perfil)
- * Permite modificar:
- * - nombre
- * - rol
- */
+console.log('SERVICE KEY:', SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20))
+
+
+/* =========================
+   UPDATE USER
+========================= */
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
-	/**
-	 * 📥 1. Obtener datos del body
-	 */
-	const { nombre, rol } = await request.json()
+  // 🔐 validar admin
+  if (locals.perfil?.rol !== 'admin') {
+    return json({ error: 'No autorizado' }, { status: 403 })
+  }
 
-	const rolesValidos = ['admin', 'operador', 'viewer']
+  const { id } = params
 
+  if (!id) {
+    return json({ error: 'ID requerido' }, { status: 400 })
+  }
 
-	/**
-	 * ⚠️ Validación básica
-	 */
-	if (!params.id) {
-		return json({ error: 'ID requerido' }, { status: 400 })
-	}
+  const { nombre, rol } = await request.json()
 
-	if (!rol) {
-		return json({ error: 'Rol requerido' }, { status: 400 })
-	}
+  const { error } = await supabaseAdmin
+    .from('perfiles')
+    .update({ nombre, rol })
+    .eq('id', id)
 
-	if (!rolesValidos.includes(rol)) {
-		return json({ error: 'Rol inválido' }, { status: 400 })
-	}
+  if (error) {
+    return json({ error: error.message }, { status: 500 })
+  }
 
-	/**
-	 * 🔐 2. Seguridad (MUY IMPORTANTE)
-	 * Solo admin puede modificar usuarios
-	 */
-	if (locals.perfil?.rol !== 'admin') {
-		return json({ error: 'No autorizado' }, { status: 403 })
-	}
-
-	/**
-	 * 🗄️ 3. Update en tabla perfiles
-	 */
-	const { error } = await locals.supabase
-		.from('perfiles')
-		.update({
-			nombre,
-			rol
-		})
-		.eq('id', params.id)
-
-	/**
-	 * ❌ Manejo de error
-	 */
-	if (error) {
-		return json({ error: error.message }, { status: 500 })
-	}
-
-	/**
-	 * ✅ OK
-	 */
-	return json({ ok: true })
-	
+  return json({ ok: true })
 }
 
 
+/* =========================
+   DELETE USER
+========================= */
+export const DELETE: RequestHandler = async ({ params, locals }) => {
+
+  
+  // 🔐 validar admin
+  if (locals.perfil?.rol !== 'admin') {
+    return json({ error: 'No autorizado' }, { status: 403 })
+  }
+
+  const { id } = params
+
+  console.log('DELETE ID:', id)
+  
+  if (!id) {
+    return json({ error: 'ID requerido' }, { status: 400 })
+  }
+
+  try {
+
+    // 🔥 1. eliminar usuario de auth
+    const { error: authError } =
+      await supabaseAdmin.auth.admin.deleteUser(id)
+
+    if (authError) {
+      return json({ error: authError.message }, { status: 500 })
+    }
+
+    // 🔥 2. eliminar perfil
+    const { error: perfilError } = await supabaseAdmin
+      .from('perfiles')
+      .delete()
+      .eq('id', id)
+
+    if (perfilError) {
+      return json({ error: perfilError.message }, { status: 500 })
+    }
+
+    return json({ ok: true })
+
+  } catch (err) {
+    return json({ error: 'Error interno' }, { status: 500 })
+  }
+}
 
 
+/* =========================
+   RESET PASSWORD (ADMIN)
+========================= */
+export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
-// ✅ DELETE USUARIO REAL (Auth + perfiles)
-export const DELETE: RequestHandler = async ({ params }) => {
-	try {
-		const userId = params.id
+  // 🔐 solo admin
+  if (locals.perfil?.rol !== 'admin') {
+    return json({ error: 'No autorizado' }, { status: 403 })
+  }
 
-		if (!userId) {
-			return json({ error: 'ID requerido' }, { status: 400 })
-		}
+  const { id } = params
 
-		// 🔥 1. ELIMINAR USUARIO DE AUTH (LO MÁS IMPORTANTE)
-		const { error: authError } =
-			await supabaseAdmin.auth.admin.deleteUser(userId)
+  if (!id) {
+    return json({ error: 'ID requerido' }, { status: 400 })
+  }
 
-		if (authError) {
-			return json({ error: authError.message }, { status: 500 })
-		}
+  const { password } = await request.json()
 
-		// 🔥 2. ELIMINAR PERFIL (opcional pero recomendado)
-		const { error: perfilError } = await supabaseAdmin
-			.from('perfiles')
-			.delete()
-			.eq('id', userId)
+  if (!password) {
+    return json({ error: 'Password requerida' }, { status: 400 })
+  }
 
-		if (perfilError) {
-			return json({ error: perfilError.message }, { status: 500 })
-		}
+  // 🔥 reset password
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
+    password
+  })
 
-		return json({ ok: true })
+  if (error) {
+    return json({ error: error.message }, { status: 500 })
+  }
 
-	} catch (err) {
-		return json({ error: 'Error interno' }, { status: 500 })
-	}
+  return json({ ok: true })
 }

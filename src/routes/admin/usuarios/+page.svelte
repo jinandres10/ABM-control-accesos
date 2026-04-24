@@ -81,7 +81,7 @@
 		email = ''
 		password = ''
 		nombre = ''
-		rol = 'usuario'
+		rol = 'viewer'
 
 		mensaje = '✅ Usuario creado'
 	}
@@ -130,6 +130,27 @@
 		// ✅ eliminar del estado sin recargar
 		usuarios = usuarios.filter(u => u.id !== id)
 	}
+
+
+	async function resetPassword(u: Usuario) {
+	const nueva = prompt(`Nueva contraseña para ${u.email}`)
+
+	if (!nueva) return
+
+	const res = await fetch(`/api/admin/users/${u.id}`, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ password: nueva })
+	})
+
+	const data = await res.json()
+
+	if (data.error) {
+		alert(data.error)
+	} else {
+		alert('🔑 Contraseña actualizada')
+	}
+	}
 </script>
 
 <!-- =========================
@@ -164,6 +185,7 @@
 
 	<select class="border p-2" bind:value={rol}>
 		<option value="usuario">viewer</option>
+		<option value="operador">operador</option>
 		<option value="admin">admin</option>
 	</select>
 
@@ -218,29 +240,37 @@
 							class="border p-1"
 							bind:value={u.rol}
 						>
-							<option value="usuario">viewer</option>
+							<option value="viewer">viewer</option>
+							<option value="operador">operador</option>
 							<option value="admin">admin</option>
 						</select>
 					</td>
 
 					<!-- ACCIONES -->
-					<td class="space-x-2">
+				<td class="space-x-2">
 
-						<button
-							class="bg-green-600 text-white px-2 py-1"
-							onclick={() => guardar(u)}
-						>
-							Guardar
-						</button>
+					<button
+						class="bg-green-600 text-white px-2 py-1"
+						onclick={() => guardar(u)}
+					>
+						Guardar
+					</button>
 
-						<button
-							class="bg-red-600 text-white px-2 py-1"
-							onclick={() => eliminar(u.id)}
-						>
-							Eliminar
-						</button>
+					<button
+						class="bg-yellow-500 text-white px-2 py-1"
+						onclick={() => resetPassword(u)}
+					>
+						Reset Pass
+					</button>
 
-					</td>
+					<button
+						class="bg-red-600 text-white px-2 py-1"
+						onclick={() => eliminar(u.id)}
+					>
+						Eliminar
+					</button>
+
+				</td>
 				</tr>
 			{/each}
 		</tbody>
