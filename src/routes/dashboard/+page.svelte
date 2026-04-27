@@ -38,15 +38,7 @@
 			</p>
 		</a>
 
-		<a
-			href={resolve('/perfiles')}
-			class="p-4 border rounded hover:shadow transition"
-		>
-			<h2 class="font-semibold text-lg">👤 Perfiles</h2>
-			<p class="text-sm text-gray-500">
-				Datos de usuarios del sistema
-			</p>
-		</a>
+
 
 		{#if esAdmin}
 			<a

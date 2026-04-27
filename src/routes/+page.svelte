@@ -23,8 +23,6 @@
     | "/dashboard"
     | "/edificios"
     | "/edificios/nuevo"
-    | "/login"
-    | "/perfiles";
     acento: string
     colorLink: string
   }
@@ -57,16 +55,7 @@ const navCards: NavCard[] = [
     acento: 'acento-blue',
     colorLink: '#2563eb'
   },
-  {
-    id: 'perfiles',
-    icono: '👤',
-    titulo: 'Perfiles',
-    descripcion:
-      'Administrá los perfiles de usuarios con acceso al sistema.',
-    href: '/perfiles',
-    acento: 'acento-violet',
-    colorLink: '#7c3aed'
-  }
+
 ]
 
 	let actividad = $state<Actividad[]>([])
