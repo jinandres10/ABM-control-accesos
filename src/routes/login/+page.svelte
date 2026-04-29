@@ -1,71 +1,99 @@
 <script lang="ts">
+  /**
+   * =========================================
+   * LOGIN SVELTE 5 (RUNES)
+   * -----------------------------------------
+   * - Llama a /api/login (validación + seguridad)
+   * - Si OK → crea sesión real con Supabase
+   * - Maneja errores y estados de carga
+   * =========================================
+   */
+
   import { supabase } from '$lib/supabase';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
 
-  // ✅ estados reactivos (Svelte 5 runes)
+  /* =========================
+     STATE (Svelte 5 runes)
+  ========================== */
   let email = $state('');
   let password = $state('');
   let error = $state('');
   let cargando = $state(false);
 
-  // ✅ login
+  /* =========================
+     LOGIN PRINCIPAL
+  ========================== */
   async function login(): Promise<void> {
-      if (!email || !password) {
-        error = 'Completá email y contraseña';
-        return;
-      }
 
-      cargando = true;
-      error = '';
+    // 🔹 Validación básica frontend
+    if (!email || !password) {
+      error = 'Completá email y contraseña';
+      return;
+    }
 
-      // 🔎 1. validar estado (bloqueado, existe, etc.)
-      const check = await fetch('/api/login', {
+    cargando = true;
+    error = '';
+
+
+
+
+    try {
+
+      /* =============================
+         1️⃣ LOGIN UNIFICADO (BACKEND)
+         - valida usuario
+         - controla bloqueos
+         - maneja intentos fallidos
+      ============================== */
+      const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
 
-      const checkData = await check.json();
+      const data = await res.json();
 
-      if (checkData.error) {
-        cargando = false;
-        error = checkData.error;
+      // ❌ Error de negocio (bloqueado, inválido, etc.)
+      if (data.error) {
+        error = data.error;
         return;
       }
 
-      // 🔐 2. login REAL (este crea la sesión en el browser)
+
+      /* =============================
+         2️⃣ CREAR SESIÓN REAL (CLIENTE)
+         ⚠️ necesario para Supabase Auth
+      ============================== */
       const { error: err } = await supabase.auth.signInWithPassword({
         email,
         password
-  });
+      });
 
-  // ❌ fallo → sumar intento
-  if (err) {
-    await fetch('/api/login/fail', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
+      if (err) {
+        error = 'Error creando sesión';
+        cargando = false;
+        return;
+      }
 
-    cargando = false;
-    error = 'Credenciales incorrectas';
-    return;
+      /* =============================
+         3️⃣ REDIRECCIÓN
+      ============================== */
+      goto(resolve('/dashboard'));
+
+    } catch (err) {
+
+      console.error('ERROR LOGIN:', err);
+      error = 'Error inesperado en el login';
+
+    } finally {
+      cargando = false;
+    }
   }
 
-  // ✅ login OK → resetear intentos
-  await fetch('/api/login/success', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email })
-  });
-
-  cargando = false;
-
-  goto(resolve('/dashboard'));
-}
-
-  // ✅ FIX ESLINT: tipar evento desde el DOM
+  /* =========================
+     UX: ENTER PARA LOGIN
+  ========================== */
   function handleKeydown(e: globalThis.KeyboardEvent): void {
     if (e.key === 'Enter') {
       login();
@@ -73,11 +101,16 @@
   }
 </script>
 
+<!-- =========================
+     UI LOGIN
+========================= -->
 <div class="login-wrap">
   <div class="login-card">
+
     <h1>Control de Accesos</h1>
     <p class="subtitle">Ingresá tus credenciales para continuar</p>
 
+    <!-- EMAIL -->
     <input
       bind:value={email}
       placeholder="Email"
@@ -86,6 +119,7 @@
       autocomplete="email"
     />
 
+    <!-- PASSWORD -->
     <input
       bind:value={password}
       placeholder="Contraseña"
@@ -94,12 +128,15 @@
       autocomplete="current-password"
     />
 
+    <!-- ERROR -->
     {#if error}
       <p class="error">{error}</p>
     {/if}
 
+    <!-- BOTÓN -->
     <button onclick={login} disabled={cargando}>
       {cargando ? 'Ingresando...' : 'Ingresar'}
     </button>
+
   </div>
 </div>
