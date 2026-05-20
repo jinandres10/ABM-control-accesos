@@ -5,9 +5,13 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private'
 
 /**
- * 🔐 Cliente público (auth)
- * - SOLO se usa para autenticar usuario (email/password)
- * - Respeta reglas de Supabase Auth
+ * =========================================
+ * 🔐 CLIENTE PÚBLICO (SOLO LECTURA LIGHT)
+ * -----------------------------------------
+ * ⚠️ IMPORTANTE:
+ * - NO se usa para login acá
+ * - Solo se mantiene por consistencia
+ * =========================================
  */
 const supabase = createClient(
   PUBLIC_SUPABASE_URL,
@@ -15,10 +19,13 @@ const supabase = createClient(
 )
 
 /**
- * 🔥 Cliente ADMIN (service role)
+ * =========================================
+ * 🔥 CLIENTE ADMIN (SERVICE ROLE)
+ * -----------------------------------------
  * - Bypass TOTAL de RLS
- * - Usar únicamente en backend (server)
- * - Permite actualizar intentos y leer perfiles sin restricciones
+ * - Uso EXCLUSIVO en backend
+ * - Permite leer/escribir perfiles sin restricciones
+ * =========================================
  */
 const supabaseAdmin = createClient(
   PUBLIC_SUPABASE_URL,
@@ -26,21 +33,29 @@ const supabaseAdmin = createClient(
 )
 
 /**
- * 🔒 Máximo de intentos antes de bloquear usuario
+ * =========================================
+ * 🔒 CONFIGURACIÓN DE SEGURIDAD
+ * =========================================
  */
-const MAX_INTENTOS = 5;
+const MAX_INTENTOS = 5
 
 export const POST: RequestHandler = async ({ request }) => {
 
   /* =============================
-     1️⃣ Obtener y normalizar datos
-  ============================== */
-  const body = await request.json()
+     1️⃣ VALIDACIÓN DE INPUT
+     ============================= */
+  let body: any
 
-  const email = body.email?.trim().toLowerCase()
-  const password = body.password
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'Formato de request inválido' }, { status: 400 })
+  }
 
-  if (!email || !password) {
+  const email = body?.email?.trim().toLowerCase()
+  const password = body?.password
+
+  if (!email || typeof email !== 'string' || !password) {
     return json(
       { error: 'Debe ingresar email y contraseña' },
       { status: 400 }
@@ -48,114 +63,37 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   /* =============================
-     2️⃣ LOGIN contra Supabase Auth
-     ⚠️ Este paso NO toca perfiles
-  ============================== */
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  })
+     2️⃣ BUSCAR PERFIL (ANTES DEL LOGIN)
+     ⚠️ IMPORTANTE:
+     - Solo verificamos estado del usuario
+     - NO autenticamos acá
+     ============================= */
+  const { data: perfil, error: perfilError } =
+    await supabaseAdmin
+      .from('perfiles')
+      .select('id, intentos_fallidos, bloqueada')
+      .ilike('email', email) // case-insensitive
+      .maybeSingle()
 
-  console.log('LOGIN ERROR:', error)
-  console.log('LOGIN DATA:', data)
+  if (perfilError) {
+    console.error('Error buscando perfil:', perfilError.message)
+    return json({ error: 'Error interno' }, { status: 500 })
+  }
 
-  /* =============================
-     3️⃣ LOGIN FALLIDO
-     → incrementa intentos en perfiles
-  ============================== */
-  if (error) {
-
-    // 🔍 Buscar perfil usando ADMIN (evita RLS)
-    const { data: perfil, error: perfilError } =
-      await supabaseAdmin
-        .from('perfiles')
-        .select('id, intentos_fallidos, bloqueada')
-        .ilike('email', email) // 🔥 case-insensitive FIX
-        .maybeSingle()
-
-    if (perfilError) {
-      console.error('Error buscando perfil:', perfilError)
-    }
-
-    if (perfil) {
-
-      const nuevosIntentos = (perfil.intentos_fallidos ?? 0) + 1
-      const bloquear = nuevosIntentos >= MAX_INTENTOS
-
-      const { error: updateError } =
-        await supabaseAdmin
-          .from('perfiles')
-          .update({
-            intentos_fallidos: nuevosIntentos,
-            bloqueada: bloquear,
-            fecha_ultimo_intento: new Date().toISOString()
-          })
-          .eq('id', perfil.id)
-
-      if (updateError) {
-        console.error('Error actualizando intentos:', updateError)
-      }
-
-      // ⚠️ último intento antes del bloqueo
-      if (nuevosIntentos === MAX_INTENTOS) {
-        return json(
-          { error: 'Último intento antes del bloqueo del usuario' },
-          { status: 401 }
-        )
-      }
-
-      // 🔒 usuario bloqueado
-      if (bloquear) {
-        return json(
-          { error: 'Usuario bloqueado por múltiples intentos fallidos' },
-          { status: 403 }
-        )
-      }
-    }
-
-    // ❌ credenciales incorrectas
+  /**
+   * 🔒 Si no existe perfil
+   * 👉 no revelamos información (seguridad)
+   */
+  if (!perfil) {
     return json(
       { error: 'Credenciales inválidas' },
       { status: 401 }
     )
   }
 
-  /* =============================
-     4️⃣ LOGIN OK → validar perfil
-     ⚠️ IMPORTANTE:
-     - auth OK NO implica acceso permitido
-  ============================== */
-  const userId = data.user?.id
-
-  if (!userId) {
-    return json(
-      { error: 'Error de autenticación (user null)' },
-      { status: 500 }
-    )
-  }
-
-  const { data: perfil, error: perfilError } =
-    await supabaseAdmin
-      .from('perfiles')
-      .select('id, bloqueada')
-      .eq('id', userId)
-      .maybeSingle()
-
-  if (perfilError) {
-    console.error('Error leyendo perfil:', perfilError)
-    return json({ error: 'Error interno' }, { status: 500 })
-  }
-
-  if (!perfil) {
-    return json(
-      { error: 'Perfil no encontrado (usuario sin alta administrativa)' },
-      { status: 403 }
-    )
-  }
-
-  /* =============================
-     5️⃣ Validar bloqueo post-login
-  ============================== */
+  /**
+   * 🔒 Si usuario está bloqueado
+   */
   if (perfil.bloqueada) {
     return json(
       { error: 'Usuario bloqueado' },
@@ -164,9 +102,71 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   /* =============================
-     6️⃣ RESET de intentos
-     → solo si login OK
-  ============================== */
+     3️⃣ VALIDACIÓN DE PASSWORD
+     ⚠️ IMPORTANTE:
+     - Se usa Supabase Auth
+     - PERO solo para validar credenciales
+     - NO usamos la sesión generada
+     ============================= */
+  const { error: loginError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+
+  /* =============================
+     4️⃣ LOGIN FALLIDO
+     → incrementar intentos
+     ============================= */
+  if (loginError) {
+
+    const nuevosIntentos = (perfil.intentos_fallidos ?? 0) + 1
+    const bloquear = nuevosIntentos >= MAX_INTENTOS
+
+    const { error: updateError } =
+      await supabaseAdmin
+        .from('perfiles')
+        .update({
+          intentos_fallidos: nuevosIntentos,
+          bloqueada: bloquear,
+          fecha_ultimo_intento: new Date().toISOString()
+        })
+        .eq('id', perfil.id)
+
+    if (updateError) {
+      console.error('Error actualizando intentos:', updateError.message)
+    }
+
+    /**
+     * ⚠️ último intento antes de bloquear
+     */
+    if (nuevosIntentos === MAX_INTENTOS - 1) {
+      return json(
+        { error: 'Último intento antes del bloqueo del usuario' },
+        { status: 401 }
+      )
+    }
+
+    /**
+     * 🔒 usuario bloqueado
+     */
+    if (bloquear) {
+      return json(
+        { error: 'Usuario bloqueado por múltiples intentos fallidos' },
+        { status: 403 }
+      )
+    }
+
+    return json(
+      { error: 'Credenciales inválidas' },
+      { status: 401 }
+    )
+  }
+
+  /* =============================
+     5️⃣ LOGIN OK
+     → reset intentos
+     ============================= */
   const { error: resetError } =
     await supabaseAdmin
       .from('perfiles')
@@ -178,14 +178,17 @@ export const POST: RequestHandler = async ({ request }) => {
       .eq('id', perfil.id)
 
   if (resetError) {
-    console.error('Error reseteando intentos:', resetError)
+    console.error('Error reseteando intentos:', resetError.message)
   }
 
   /* =============================
-     7️⃣ RESPUESTA FINAL
+     6️⃣ RESPUESTA FINAL
      ⚠️ IMPORTANTE:
-     - NO crea sesión SSR
-     - La sesión real se crea en frontend
-  ============================== */
-  return json({ ok: true })
+     - NO crea sesión en navegador
+     - El frontend DEBE hacer login real
+     ============================= */
+  return json({
+    ok: true,
+    message: 'Validación OK'
+  })
 }

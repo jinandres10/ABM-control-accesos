@@ -7,7 +7,7 @@ import {
 
 /**
  * =========================================
- * RUTAS PROTEGIDAS
+ * 🔐 RUTAS PROTEGIDAS
  * =========================================
  */
 const RUTAS_PROTEGIDAS = [
@@ -26,17 +26,14 @@ export const handle: Handle = async ({ event, resolve }) => {
     PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-
         getAll: () => event.cookies.getAll(),
 
         setAll: (cookies) => {
           cookies.forEach(({ name, value, options }) => {
-
             event.cookies.set(name, value, {
               path: '/',
               ...options
             })
-
           })
         }
       }
@@ -44,26 +41,40 @@ export const handle: Handle = async ({ event, resolve }) => {
   )
 
   /* =========================================
-     2️⃣ OBTENER SESIÓN
+     2️⃣ OBTENER SESIÓN (una sola vez)
   ========================================= */
   const {
     data: { session }
   } = await event.locals.supabase.auth.getSession()
 
-  /* =========================================
-     3️⃣ OBTENER USER
-  ========================================= */
-  const {
-    data: { user }
-  } = await event.locals.supabase.auth.getUser()
+  const user = session?.user ?? null
+  const path = event.url.pathname
 
   /* =========================================
-     4️⃣ CARGAR PERFIL
+     3️⃣ REDIRECCIÓN SI YA ESTÁ LOGUEADO
+  ========================================= */
+  if (user && path === '/login') {
+    throw redirect(303, '/dashboard')
+  }
+
+  /* =========================================
+     4️⃣ PROTEGER RUTAS (ANTES DE DB)
+  ========================================= */
+  const protegida =
+    RUTAS_PROTEGIDAS.some((ruta) =>
+      path.startsWith(ruta)
+    )
+
+  if (protegida && !user) {
+    throw redirect(303, '/login')
+  }
+
+  /* =========================================
+     5️⃣ CARGAR PERFIL (solo si necesario)
   ========================================= */
   let perfil = null
 
   if (user) {
-
     const { data, error } =
       await event.locals.supabase
         .from('perfiles')
@@ -72,76 +83,47 @@ export const handle: Handle = async ({ event, resolve }) => {
         .maybeSingle()
 
     if (error) {
-
       console.error(
         'Error cargando perfil:',
-        error
+        error.message
       )
-
     } else {
-
       perfil = data
-
     }
   }
 
   /* =========================================
-     5️⃣ VALIDAR BLOQUEO
+     6️⃣ VALIDAR BLOQUEO
   ========================================= */
   if (perfil?.bloqueada) {
-
-    throw redirect(
-      303,
-      '/bloqueado'
-    )
+    throw redirect(303, '/bloqueado')
   }
 
   /* =========================================
-     6️⃣ GUARDAR EN LOCALS
+     7️⃣ PROTEGER ADMIN
+  ========================================= */
+  if (path.startsWith('/admin')) {
+    if (!user || perfil?.rol !== 'admin') {
+      throw redirect(303, '/')
+    }
+  }
+
+  /* =========================================
+     8️⃣ GUARDAR EN LOCALS
   ========================================= */
   event.locals.session = session
   event.locals.user = user
   event.locals.perfil = perfil
 
   /* =========================================
-     7️⃣ PROTEGER RUTAS
-  ========================================= */
-  const protegida =
-    RUTAS_PROTEGIDAS.some((ruta) =>
-      event.url.pathname.startsWith(ruta)
-    )
-
-  if (protegida && !user) {
-
-    throw redirect(
-      303,
-      '/login'
-    )
-  }
-
-  /* =========================================
-     8️⃣ PROTEGER ADMIN
-  ========================================= */
-  if (
-    event.url.pathname.startsWith('/admin')
-  ) {
-
-    if (
-      !user ||
-      perfil?.rol !== 'admin'
-    ) {
-
-      throw redirect(303, '/')
-    }
-  }
-
-  /* =========================================
      9️⃣ CONTINUAR REQUEST
   ========================================= */
   return resolve(event, {
-	filterSerializedResponseHeaders(name) {
-		return name === 'content-range'
-			|| name === 'x-supabase-api-version';
-	}
+    filterSerializedResponseHeaders(name) {
+      return (
+        name === 'content-range' ||
+        name === 'x-supabase-api-version'
+      )
+    }
   })
 }

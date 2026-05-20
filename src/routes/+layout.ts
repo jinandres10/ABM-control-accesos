@@ -1,44 +1,37 @@
 /**
  * =====================================================
- * LAYOUT UNIVERSAL
+ * LAYOUT UNIVERSAL (CLIENT SIDE AUTH)
  * -----------------------------------------------------
  * Sincroniza:
- * - Supabase Auth
- * - Browser session
- * - SSR session
- * - Refresh token
+ * - Supabase Auth (localStorage)
+ * - Estado global del usuario
  *
- * ⚠️ ESTE ARCHIVO ES OBLIGATORIO
- * para que hooks.server.ts pueda
- * leer la sesión correctamente.
+ * ⚠️ IMPORTANTE:
+ * - Esto corre en el cliente
+ * - NO es protección SSR real
+ * - Solo mantiene estado en la UI
  * =====================================================
  */
 
 import { supabase } from '$lib/supabase';
-
 import type { LayoutLoad } from './$types';
 
 export const load: LayoutLoad = async () => {
 
   /* =============================
-     Obtener sesión actual
-  ============================== */
+     1️⃣ Obtener sesión actual
+     ============================= */
   const {
     data: { session }
   } = await supabase.auth.getSession();
 
   /* =============================
-     Obtener usuario autenticado
-  ============================== */
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  /* =============================
-     Devolver al layout SSR
-  ============================== */
+     2️⃣ Retornar datos globales
+     - session incluye user
+     - simplificamos lógica
+     ============================= */
   return {
-    session,
-    user
+    session: session ?? null,
+    user: session?.user ?? null
   };
 };
