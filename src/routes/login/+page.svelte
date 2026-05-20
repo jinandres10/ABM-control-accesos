@@ -10,7 +10,7 @@
    */
 
   import { supabase } from '$lib/supabase';
-  import { goto } from '$app/navigation';
+  /*import { goto } from '$app/navigation';*/
   import { resolve } from '$app/paths';
 
   /* =========================
@@ -61,26 +61,41 @@
       }
 
 
-      /* =============================
-         2️⃣ CREAR SESIÓN REAL (CLIENTE)
-         ⚠️ necesario para Supabase Auth
-      ============================== */
-      const { error: err } = await supabase.auth.signInWithPassword({
+    /* =============================
+    2️⃣ CREAR SESIÓN REAL (CLIENTE)
+    ⚠️ Esto crea:
+    - access_token
+    - refresh_token
+    - localStorage
+    - persistencia auth
+    ============================== */
+      const { error: err } = 
+      await supabase.auth.signInWithPassword({
         email,
         password
       });
 
+      /**
+       * ❌ Error creando sesión
+       */
       if (err) {
         error = 'Error creando sesión';
         cargando = false;
         return;
       }
 
-      /* =============================
-         3️⃣ REDIRECCIÓN
-      ============================== */
-      goto(resolve('/dashboard'));
+    /* =============================
+   3️⃣ ESPERAR PERSISTENCIA
+   ⚠️ MUY IMPORTANTE
+    ============================== */
+     await new Promise((resolve) =>
+     setTimeout(resolve, 500)
+     );
 
+    /* =============================
+   4️⃣ REDIRECCIÓN
+    ============================== */
+    window.location.href = resolve('/dashboard');
     } catch (err) {
 
       console.error('ERROR LOGIN:', err);
