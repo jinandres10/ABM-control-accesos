@@ -1,141 +1,250 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from '@sveltejs/kit'
 import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from '$env/static/private'
+import {
+	SUPABASE_URL,
+	SUPABASE_SERVICE_ROLE_KEY
+} from '$env/static/private'
 
-// 🔐 cliente admin (bypass RLS)
+/* =========================================
+   🔐 CLIENTE ADMIN (bypass RLS)
+========================================= */
+
 const supabaseAdmin = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY
+	SUPABASE_URL,
+	SUPABASE_SERVICE_ROLE_KEY
 )
 
-console.log('URL:', SUPABASE_URL)
-console.log('SERVICE KEY:', SUPABASE_SERVICE_ROLE_KEY?.slice(0, 20))
+/* =========================================
+   ✏️ UPDATE USER
+========================================= */
 
+export const PUT: RequestHandler = async ({
+	params,
+	request,
+	locals
+}) => {
 
-/* =========================
-   UPDATE USER (flexible)
-========================= */
-export const PUT: RequestHandler = async ({ params, request, locals }) => {
+	/* =========================
+	   VALIDAR ADMIN
+	========================= */
 
-  // 🔐 validar admin
-  if (locals.perfil?.rol !== 'admin') {
-    return json({ error: 'No autorizado' }, { status: 403 })
-  }
+	if (locals.perfil?.rol !== 'admin') {
+		return json(
+			{ error: 'No autorizado' },
+			{ status: 403 }
+		)
+	}
 
-  const { id } = params
+	const { id } = params
 
-  if (!id) {
-    return json({ error: 'ID requerido' }, { status: 400 })
-  }
+	if (!id) {
+		return json(
+			{ error: 'ID requerido' },
+			{ status: 400 }
+		)
+	}
 
-  // ✅ obtenemos TODOS los campos enviados
-  const body = await request.json()
+	/* =========================
+	   BODY
+	========================= */
 
-  // 🧠 construimos objeto dinámico SOLO con campos permitidos
-  const updateData: any = {}
+	const body = await request.json()
 
-  if (body.nombre !== undefined) updateData.nombre = body.nombre
-  if (body.rol !== undefined) updateData.rol = body.rol
+	/* =========================
+	   OBJETO UPDATE DINÁMICO
+	========================= */
 
-  // 🔥 NUEVO: soporte desbloqueo
-  if (body.bloqueada !== undefined) updateData.bloqueada = body.bloqueada
-  if (body.intentos_fallidos !== undefined) updateData.intentos_fallidos = body.intentos_fallidos
+	const updateData: Record<string, any> = {}
 
-  // ⚠️ seguridad: evitar update vacío
-  if (Object.keys(updateData).length === 0) {
-    return json({ error: 'Nada para actualizar' }, { status: 400 })
-  }
+	// 👤 Datos personales
+	if (body.nombre !== undefined)
+		updateData.nombre = body.nombre
 
-  const { error } = await supabaseAdmin
-    .from('perfiles')
-    .update(updateData)
-    .eq('id', id)
+	if (body.apellido !== undefined)
+		updateData.apellido = body.apellido
 
-  if (error) {
-    return json({ error: error.message }, { status: 500 })
-  }
+	if (body.telefono !== undefined)
+		updateData.telefono = body.telefono
 
-  return json({ ok: true })
+	// 🔐 Rol
+	if (body.rol !== undefined)
+		updateData.rol = body.rol
+
+	// 🔓 Desbloqueo
+	if (body.bloqueada !== undefined)
+		updateData.bloqueada = body.bloqueada
+
+	if (body.intentos_fallidos !== undefined)
+		updateData.intentos_fallidos =
+			body.intentos_fallidos
+
+	/* =========================
+	   VALIDAR UPDATE VACÍO
+	========================= */
+
+	if (Object.keys(updateData).length === 0) {
+		return json(
+			{ error: 'Nada para actualizar' },
+			{ status: 400 }
+		)
+	}
+
+	/* =========================
+	   UPDATE PERFIL
+	========================= */
+
+	const { error } = await supabaseAdmin
+		.from('perfiles')
+		.update(updateData)
+		.eq('id', id)
+
+	if (error) {
+		return json(
+			{ error: error.message },
+			{ status: 500 }
+		)
+	}
+
+	return json({ ok: true })
 }
 
-/* =========================
-   DELETE USER
-========================= */
-export const DELETE: RequestHandler = async ({ params, locals }) => {
+/* =========================================
+   🗑️ DELETE USER
+========================================= */
 
-  
-  // 🔐 validar admin
-  if (locals.perfil?.rol !== 'admin') {
-    return json({ error: 'No autorizado' }, { status: 403 })
-  }
+export const DELETE: RequestHandler = async ({
+	params,
+	locals
+}) => {
 
-  const { id } = params
+	/* =========================
+	   VALIDAR ADMIN
+	========================= */
 
-  console.log('DELETE ID:', id)
-  
-  if (!id) {
-    return json({ error: 'ID requerido' }, { status: 400 })
-  }
+	if (locals.perfil?.rol !== 'admin') {
+		return json(
+			{ error: 'No autorizado' },
+			{ status: 403 }
+		)
+	}
 
-  try {
+	const { id } = params
 
-    // 🔥 1. eliminar usuario de auth
-    const { error: authError } =
-      await supabaseAdmin.auth.admin.deleteUser(id)
+	if (!id) {
+		return json(
+			{ error: 'ID requerido' },
+			{ status: 400 }
+		)
+	}
 
-    if (authError) {
-      return json({ error: authError.message }, { status: 500 })
-    }
+	try {
 
-    // 🔥 2. eliminar perfil
-    const { error: perfilError } = await supabaseAdmin
-      .from('perfiles')
-      .delete()
-      .eq('id', id)
+		/* =========================
+		   1️⃣ ELIMINAR AUTH USER
+		========================= */
 
-    if (perfilError) {
-      return json({ error: perfilError.message }, { status: 500 })
-    }
+		const { error: authError } =
+			await supabaseAdmin.auth.admin.deleteUser(id)
 
-    return json({ ok: true })
+		if (authError) {
+			return json(
+				{ error: authError.message },
+				{ status: 500 }
+			)
+		}
 
-  } catch (err) {
-    return json({ error: 'Error interno' }, { status: 500 })
-  }
+		/* =========================
+		   2️⃣ ELIMINAR PERFIL
+		========================= */
+
+		const { error: perfilError } =
+			await supabaseAdmin
+				.from('perfiles')
+				.delete()
+				.eq('id', id)
+
+		if (perfilError) {
+			return json(
+				{ error: perfilError.message },
+				{ status: 500 }
+			)
+		}
+
+		return json({ ok: true })
+
+	} catch (err) {
+
+		console.error(err)
+
+		return json(
+			{ error: 'Error interno' },
+			{ status: 500 }
+		)
+	}
 }
 
+/* =========================================
+   🔑 RESET PASSWORD
+========================================= */
 
-/* =========================
-   RESET PASSWORD (ADMIN)
-========================= */
-export const PATCH: RequestHandler = async ({ params, request, locals }) => {
+export const PATCH: RequestHandler = async ({
+	params,
+	request,
+	locals
+}) => {
 
-  // 🔐 solo admin
-  if (locals.perfil?.rol !== 'admin') {
-    return json({ error: 'No autorizado' }, { status: 403 })
-  }
+	/* =========================
+	   VALIDAR ADMIN
+	========================= */
 
-  const { id } = params
+	if (locals.perfil?.rol !== 'admin') {
+		return json(
+			{ error: 'No autorizado' },
+			{ status: 403 }
+		)
+	}
 
-  if (!id) {
-    return json({ error: 'ID requerido' }, { status: 400 })
-  }
+	const { id } = params
 
-  const { password } = await request.json()
+	if (!id) {
+		return json(
+			{ error: 'ID requerido' },
+			{ status: 400 }
+		)
+	}
 
-  if (!password) {
-    return json({ error: 'Password requerida' }, { status: 400 })
-  }
+	/* =========================
+	   BODY
+	========================= */
 
-  // 🔥 reset password
-  const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
-    password
-  })
+	const { password } = await request.json()
 
-  if (error) {
-    return json({ error: error.message }, { status: 500 })
-  }
+	if (!password) {
+		return json(
+			{ error: 'Password requerida' },
+			{ status: 400 }
+		)
+	}
 
-  return json({ ok: true })
+	/* =========================
+	   UPDATE PASSWORD
+	========================= */
+
+	const { error } =
+		await supabaseAdmin.auth.admin.updateUserById(
+			id,
+			{
+				password
+			}
+		)
+
+	if (error) {
+		return json(
+			{ error: error.message },
+			{ status: 500 }
+		)
+	}
+
+	return json({ ok: true })
 }

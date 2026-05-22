@@ -1,23 +1,61 @@
 <script lang="ts">
+  /**
+   * =====================================================
+   * LAYOUT GLOBAL
+   * -----------------------------------------------------
+   * - Maneja UI global (navbar, logout)
+   * - Sincroniza estado de autenticación
+   * - Reacciona a login/logout automáticamente
+   * =====================================================
+   */
+
   import '../app.css';
   import { logout } from '$lib/auth';
+
+  import { supabase } from '$lib/supabase';
+  import { onMount } from 'svelte';
+  import { invalidateAll } from '$app/navigation';
+
   let { children } = $props();
-  
+
+  /* =========================================
+     🔄 ESCUCHAR CAMBIOS DE AUTH (MUY IMPORTANTE)
+     ========================================= */
+  onMount(() => {
+    const { data: listener } =
+      supabase.auth.onAuthStateChange(() => {
+
+        // 🔄 Fuerza actualización de toda la app
+        // (session, user, layout.ts, etc.)
+        invalidateAll();
+      });
+
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  });
 </script>
 
+<!-- =========================================
+     HEADER GLOBAL
+========================================= -->
+<header class="header">
 
-<header>
-  <button onclick={logout}>
-    Cerrar sesión
+  <div class="brand">
+    Control Accesos
+  </div>
+
+  <!-- BOTÓN LOGOUT -->
+  <button class="logout-btn" onclick={logout}>
+    🔒 Cerrar sesión
   </button>
+
 </header>
 
 
-
-<nav class="navbar">
-  <div class="brand">Control Accesos</div>
-</nav>
-
+<!-- =========================================
+     CONTENIDO PRINCIPAL
+========================================= -->
 <main class="container page">
   {@render children()}
 </main>
