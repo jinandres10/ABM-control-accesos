@@ -231,20 +231,25 @@ export const PATCH: RequestHandler = async ({
 	   UPDATE PASSWORD
 	========================= */
 
-	const { error } =
-		await supabaseAdmin.auth.admin.updateUserById(
-			id,
-			{
-				password
-			}
-		)
+		const result =
+		await supabaseAdmin.auth.admin.updateUserById(id, {
+			password
+		})
 
-	if (error) {
+		console.log('UPDATE PASSWORD RESULT:')
+		console.dir(result, { depth: null })
+
+		if (result.error) {
+		console.error('PASSWORD ERROR:')
+		console.error(result.error)
+
 		return json(
-			{ error: error.message },
+			{ error: result.error.message },
 			{ status: 500 }
 		)
-	}
+		}
+
+		console.log('PASSWORD UPDATED OK')
 
 	return json({ ok: true })
 }

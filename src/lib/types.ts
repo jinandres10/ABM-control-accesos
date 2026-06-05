@@ -39,12 +39,19 @@ export interface PerfilForm {
    INGRESO / EGRESO
 ========================================= */
 
+export interface PerfilIngreso {
+	nombre: string | null;
+	apellido: string | null;
+}
+
 export interface IngresoEgreso {
 	id: number;
 
 	id_usuario: string;
 	usuario: string;
 
+	perfiles?: PerfilIngreso | null;
+	
 	id_edificio: string;
 	nombre_edificio: string;
 
@@ -76,6 +83,21 @@ export interface IngresoEgreso {
 	online_status: boolean;
 
 	timestampcliente: string;
+
+	
+
+  	/* =========================================
+	   RELACIÓN CON EDIFICIOS
+	========================================= */
+
+	edificios?: {
+		id: string;
+		nombre: string;
+		direccion: string | null;
+		latitud: number;
+		longitud: number;
+	};
+  
 }
 
 /* =========================================

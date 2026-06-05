@@ -117,61 +117,115 @@
 
 		mensaje = '✅ Usuario creado'
 	}
-
 	async function guardar(u: Usuario) {
 
-		await fetch(`/api/admin/users/${u.id}`, {
+		const res = await fetch(
+			`/api/admin/users/${u.id}`,
+			{
+				method: 'PUT',
 
-			method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json'
+				},
 
-			headers: {
-				'Content-Type': 'application/json'
-			},
+				body: JSON.stringify({
+					nombre: u.nombre,
+					apellido: u.apellido,
+					telefono: u.telefono,
+					rol: u.rol
+				})
+			}
+		)
 
-			body: JSON.stringify({
-				nombre: u.nombre,
-				apellido: u.apellido,
-				telefono: u.telefono,
-				rol: u.rol
-			})
-		})
+		const data = await res.json()
 
-		alert('✅ Guardado')
+		if (!res.ok) {
+
+			alert(
+				`❌ Error al guardar:\n${data.error}`
+			)
+
+			return
+		}
+
+		alert('✅ Usuario actualizado')
 	}
 
 	async function eliminar(id: string) {
 
 		if (!confirm('¿Eliminar usuario?')) return
 
-		await fetch(`/api/admin/users/${id}`, {
-			method: 'DELETE'
-		})
+		const res = await fetch(
+			`/api/admin/users/${id}`,
+			{
+				method: 'DELETE'
+			}
+		)
 
-		usuarios = usuarios.filter((u) => u.id !== id)
+		const data = await res.json()
+
+		if (!res.ok) {
+
+			alert(
+				`❌ Error al eliminar:\n${data.error}`
+			)
+
+			return
+		}
+
+		usuarios = usuarios.filter(
+			(u) => u.id !== id
+		)
+
+		alert('🗑️ Usuario eliminado')
 	}
 
 	async function resetPassword(u: Usuario) {
 
-		const nueva = prompt(
-			`Nueva contraseña para ${u.email}`
+	const nueva = prompt(
+		`Nueva contraseña para ${u.email}`
+	)
+
+	if (!nueva) return
+
+	// Validación local
+	if (nueva.length < 6) {
+
+		alert(
+			'❌ La contraseña debe tener al menos 6 caracteres'
 		)
 
-		if (!nueva) return
+		return
+	}
 
-		await fetch(`/api/admin/users/${u.id}`, {
+		const res = await fetch(
+			`/api/admin/users/${u.id}`,
+			{
+				method: 'PATCH',
 
-			method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
 
-			headers: {
-				'Content-Type': 'application/json'
-			},
+				body: JSON.stringify({
+					password: nueva
+				})
+			}
+		)
 
-			body: JSON.stringify({
-				password: nueva
-			})
-		})
+		const data = await res.json()
 
-		alert('🔑 Contraseña actualizada')
+		// Si el backend devuelve error
+		if (!res.ok) {
+
+			alert(
+				`❌ Error al actualizar contraseña:\n${data.error}`
+			)
+
+			return
+		}
+
+		alert('🔑 Contraseña actualizada correctamente')
 	}
 
 	async function desbloquear(u: Usuario) {

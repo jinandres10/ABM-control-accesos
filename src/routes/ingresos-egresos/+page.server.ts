@@ -29,10 +29,19 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const { data: ingresos, error } =
 		await locals.supabase
 			.from('ingreso_egreso')
-			.select('*')
+			.select(`
+				*,
+				perfiles!fk_ingreso_egreso_usuario (
+					id,
+					nombre,
+					apellido
+				)
+			`)
 			.order('creado_en', { ascending: false })
-			.limit(1000); // ✅ agregado
-
+			.limit(1000);
+	
+	console.log('DATA:', JSON.stringify(ingresos?.[2], null, 2))
+	
 	if (error) {
 		console.error(error);
 	}
@@ -50,7 +59,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 	/* =============================
 	   4️⃣ RETURN
 	============================= */
-
+	console.log(
+		JSON.stringify(
+		ingresos?.[0],
+		null,
+		2
+		)
+	)
 	return {
 		ingresos: ingresos ?? [],
 		edificios: edificios ?? []
