@@ -4,70 +4,124 @@ import type { PageServerLoad } from './$types';
  * =========================================
  * LOAD SSR
  * -----------------------------------------
- * - Carga ingresos/egresos
+ * - Carga ingresos
+ * - Carga perfiles
+ * - JOIN manual (✅ robusto)
  * - Carga edificios
- * - Se ejecuta en servidor
  * =========================================
  */
 export const load: PageServerLoad = async ({ locals }) => {
 
-	/* =============================
-	   1️⃣ VALIDAR LOGIN
-	============================= */
+    /* =============================
+       1️⃣ VALIDAR LOGIN
+    ============================= */
+    if (!locals.user) {
+        return {
+            ingresos: [],
+            edificios: []
+        };
+    }
 
-	if (!locals.user) {
-		return {
-			ingresos: [],
-			edificios: []
-		};
-	}
+    /* =============================
+       2️⃣ OBTENER INGRESOS (SIN JOIN)
+    ============================= */
+    const { data: ingresosRaw, error: errorIngresos } =
+        await locals.supabase
+            .from('ingreso_egreso')
+            .select('*')
+            .order('creado_en', { ascending: false })
+            .limit(1000);
 
-	/* =============================
-	   2️⃣ OBTENER INGRESOS
-	============================= */
+    if (errorIngresos) {
+        console.error('Error ingresos:', errorIngresos);
+    }
 
-	const { data: ingresos, error } =
-		await locals.supabase
-			.from('ingreso_egreso')
-			.select(`
-				*,
-				perfiles!fk_ingreso_egreso_usuario (
-					id,
-					nombre,
-					apellido
-				)
-			`)
-			.order('creado_en', { ascending: false })
-			.limit(1000);
-	
-	console.log('DATA:', JSON.stringify(ingresos?.[2], null, 2))
-	
-	if (error) {
-		console.error(error);
-	}
+    /* =============================
+       3️⃣ OBTENER PERFILES
+    ============================= */
+    const { data: perfiles, error: errorPerfiles } =
+        await locals.supabase
+            .from('perfiles')
+            .select('id, nombre, apellido');
 
-	/* =============================
-	   3️⃣ OBTENER EDIFICIOS
-	============================= */
+    if (errorPerfiles) {
+        console.error('Error perfiles:', errorPerfiles);
+    }
 
-	const { data: edificios } =
-		await locals.supabase
-			.from('edificios')
-			.select('*')
-			.order('nombre');
+    /**
+     * =========================================
+     * 4️⃣ INDEXAR PERFILES (🔥 PERFORMANCE PRO)
+     * -----------------------------------------
+     * Convertimos array → Map
+     * lookup O(1) en vez de O(n)
+     * =========================================
+     */
+    const perfilesMap = new Map(
+    (perfiles ?? []).map(p => [
+        p.id.trim().toLowerCase(),
+        p
+    ])
+    );
 
-	/* =============================
-	   4️⃣ RETURN
-	============================= */
-	console.log(
-		JSON.stringify(
-		ingresos?.[0],
-		null,
-		2
-		)
-	)
-	return {
-		ingresos: ingresos ?? [],
-		edificios: edificios ?? []
-	};
+    /**
+     * =========================================
+     * 5️⃣ JOIN MANUAL (🔥 CLAVE)
+     * -----------------------------------------
+     * - evita problemas de FK/relaciones
+     * - completamente controlado
+     * - siempre devuelve datos consistentes
+     * =========================================
+     */
+    const ingresos = (ingresosRaw ?? []).map((i: any) => {
+
+        const perfil = perfilesMap.get(
+        i.id_usuario?.trim().toLowerCase()
+        ) ?? null;
+
+        return {
+            ...i,
+            
+
+            /**
+             * ✅ SIEMPRE objeto o null
+             * (nunca array, nunca inconsistente)
+             */
+            perfiles: perfil
+            
+        };
+    });
+
+    /* =============================
+       DEBUG (opcional)
+    ============================= */
+    console.log(
+        'INGRESO CON PERFIL:',
+        JSON.stringify(ingresos?.[0], null, 2)
+    );
+    
+    console.log('PERFILES RAW:', perfiles?.length);
+    console.log(
+     perfiles?.find(p => p.id === '3babc312-a359-42b4-a735-e7ef72a77353')
+    );
+
+    /* =============================
+       6️⃣ OBTENER EDIFICIOS
+    ============================= */
+    const { data: edificios, error: errorEdificios } =
+        await locals.supabase
+            .from('edificios')
+            .select('*')
+            .order('nombre');
+
+    if (errorEdificios) {
+        console.error('Error edificios:', errorEdificios);
+    }
+
+    /* =============================
+       7️⃣ RETURN FINAL
+    ============================= */
+    return {
+        ingresos,
+        edificios: edificios ?? []
+    };
 };

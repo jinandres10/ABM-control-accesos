@@ -40,6 +40,7 @@ export interface PerfilForm {
 ========================================= */
 
 export interface PerfilIngreso {
+	id: string
 	nombre: string | null;
 	apellido: string | null;
 }
