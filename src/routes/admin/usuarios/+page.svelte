@@ -96,6 +96,7 @@
 				||
 				(u.telefono ?? '').toLowerCase().includes(texto)
 			)
+			
 		})
 	})
 	onMount(() => {
@@ -108,29 +109,42 @@
 
 	async function cargarUsuarios() {
 
-	cargando = true
+		cargando = true
 
-	const url =
-		mostrarBajas
-			? '/api/admin/users?incluirBajas=true'
-			: '/api/admin/users'
+		try {
 
-	const res = await fetch(url)
+			const url =
+				mostrarBajas
+					? '/api/admin/users?incluirBajas=true'
+					: '/api/admin/users'
 
-	const data = await res.json()
+			const res = await fetch(url)
 
-	if (data.error) {
+			const data = await res.json()
 
-		mensaje = data.error
+			if (!res.ok) {
 
-	} else {
+				mensaje =
+					data.error ??
+					'Error cargando usuarios'
 
-		usuarios = data.usuarios
+				return
+			}
 
+			usuarios = data.usuarios ?? []
+
+		} catch (error) {
+
+			console.error(error)
+
+			mensaje =
+				'Error inesperado al cargar usuarios'
+
+		} finally {
+
+			cargando = false
+		}
 	}
-
-	cargando = false
-}
 
 	async function crear() {
 
@@ -634,6 +648,7 @@
 										<button
 											class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-[11px]"
 											onclick={() => guardar(u)}
+											title="Guardar cambios"
 										>
 											💾
 										</button>
@@ -641,6 +656,7 @@
 										<button
 											class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-[11px]"
 											onclick={() => resetPassword(u)}
+											title="Restablecer contraseña"
 										>
 											🔑
 										</button>
@@ -648,6 +664,7 @@
 										<button
 											class="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-[11px]"
 											onclick={() => desbloquear(u)}
+											title="Desbloquear usuario"
 										>
 											🔓
 										</button>
@@ -659,6 +676,7 @@
 												text-white px-2 py-1 rounded
 												text-[11px]"
 												onclick={() => darBaja(u)}
+												title="Dar de baja"
 											>
 												🚫
 											</button>
@@ -670,6 +688,7 @@
 												text-white px-2 py-1 rounded
 												text-[11px]"
 												onclick={() => reactivar(u)}
+												title="Reactivar usuario"
 											>
 												♻️
 											</button>
