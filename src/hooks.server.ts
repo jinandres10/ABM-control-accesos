@@ -226,6 +226,25 @@ export const handle: Handle = async ({ event, resolve }) => {
     throw redirect(303, '/bloqueado')
   }
 
+  /**
+ * =========================================
+ * 🚫 OPERADOR
+ * =========================================
+ *
+ * Seguridad adicional:
+ * si el usuario tiene sesión activa
+ * pero es operador,
+ * no puede navegar por el panel.
+ */
+if (
+  perfil?.rol === 'operador' &&
+  path !== '/login'
+) {
+  throw redirect(
+    303,
+    '/sin-permisos'
+  )
+}
   /* =========================================
      7️⃣ PROTEGER RUTAS ADMIN
   =========================================

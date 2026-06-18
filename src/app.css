@@ -268,6 +268,15 @@ textarea {
   transition: border-color var(--transition), box-shadow var(--transition);
   outline: none;
   appearance: none;
+  
+}
+
+input[type="checkbox"] {
+  appearance: auto;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #2563eb;
 }
 
 input::placeholder,

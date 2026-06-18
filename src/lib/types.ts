@@ -18,13 +18,28 @@ export interface EdificioForm {
 
 
 export interface Perfil {
-  id: string
-  nombre: string | null
-  apellido: string
-  telefono: string
-  email: string | null
-  rol: 'admin' | 'operador' | 'viewer'
-  creado_en: string
+	id: string
+
+	email: string
+
+	nombre: string
+	apellido: string
+	telefono: string
+
+	rol: 'admin' | 'operador' | 'viewer'
+
+	intentos_fallidos: number
+	bloqueada: boolean
+
+	 creado_en: string
+	/* =========================
+	   BAJA LÓGICA
+	========================= */
+
+	activo: boolean
+
+	fecha_baja: string | null
+ 
 }
 
 export interface PerfilForm {

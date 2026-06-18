@@ -68,17 +68,27 @@ export const POST: RequestHandler = async ({ request }) => {
      - Solo verificamos estado del usuario
      - NO autenticamos acá
      ============================= */
-  const { data: perfil, error: perfilError } =
-    await supabaseAdmin
-      .from('perfiles')
-      .select('id, intentos_fallidos, bloqueada')
-      .ilike('email', email) // case-insensitive
-      .maybeSingle()
+const { data: perfil, error: perfilError } =
+  await supabaseAdmin
+    .from('perfiles')
+    .select(`
+      id,
+      rol,
+      intentos_fallidos,
+      bloqueada,
+      activo,
+      fecha_baja
+    `)
+    .ilike('email', email)
+    .maybeSingle()
 
+    
   if (perfilError) {
     console.error('Error buscando perfil:', perfilError.message)
     return json({ error: 'Error interno' }, { status: 500 })
   }
+
+  
 
   /**
    * 🔒 Si no existe perfil
@@ -100,6 +110,34 @@ export const POST: RequestHandler = async ({ request }) => {
       { status: 403 }
     )
   }
+
+  if (perfil.activo === false) {
+
+  return json(
+    {
+      error:
+        'Usuario dado de baja. Contacte al administrador.'
+    },
+    { status: 403 }
+  )
+}
+  /**
+ * =========================================
+ * 🚫 ROL OPERADOR
+ * =========================================
+ *
+ * No puede ingresar al panel administrativo.
+ */
+if (perfil.rol === 'operador') {
+
+  return json(
+    {
+      error:
+        'Usted tiene el rol de Operador, no tiene permitido ingresar al panel administrativo, contáctese con el administrador del sistema'
+    },
+    { status: 403 }
+  )
+}
 
   /* =============================
      3️⃣ VALIDACIÓN DE PASSWORD
@@ -163,6 +201,20 @@ export const POST: RequestHandler = async ({ request }) => {
     )
   }
 
+  /* =============================
+   4.5️⃣ VALIDAR ROL
+============================= */
+
+if (perfil.rol === 'operador') {
+
+  return json(
+    {
+      error:
+        'Usted tiene el rol de Operador, no tiene permitido ingresar al panel administrativo. Contáctese con el administrador del sistema.'
+    },
+    { status: 403 }
+  );
+}
   /* =============================
      5️⃣ LOGIN OK
      → reset intentos

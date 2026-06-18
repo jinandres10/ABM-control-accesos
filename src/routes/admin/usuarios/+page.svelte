@@ -5,14 +5,27 @@
 	   MODELO
 	========================= */
 	type Usuario = {
-		id: string
-		email: string
-		nombre: string
-		apellido: string
-		telefono: string
-		rol: 'admin' | 'operador' | 'viewer'
-		intentos_fallidos: number
-		bloqueada: boolean
+			id: string
+
+			email: string
+
+			nombre: string
+			apellido: string
+			telefono: string
+
+			rol: 'admin' | 'operador' | 'viewer'
+
+			intentos_fallidos: number
+			bloqueada: boolean
+
+			creado_en: string
+			/* =========================
+			BAJA LÓGICA
+			========================= */
+
+			activo: boolean
+
+			fecha_baja: string | null
 	}
 
 	/* =========================
@@ -23,6 +36,22 @@
 	let mensaje = $state('')
 
 	let busqueda = $state('')
+
+	/* =========================
+   FILTRO BAJAS
+	========================= */
+
+	let mostrarBajas = $state(false)
+
+	/* =========================
+	$effect(() => {
+
+	mostrarBajas
+
+	cargarUsuarios()
+
+	})
+	========================= */
 
 	let email = $state('')
 	let password = $state('')
@@ -37,18 +66,38 @@
 	========================= */
 	let usuariosFiltrados = $derived.by<Usuario[]>(() => {
 
-		if (!busqueda) return usuarios
+		const texto = busqueda.trim().toLowerCase()
 
-		const texto = busqueda.toLowerCase()
+		return usuarios.filter((u) => {
 
-		return usuarios.filter((u) =>
-			u.nombre?.toLowerCase().includes(texto) ||
-			u.apellido?.toLowerCase().includes(texto) ||
-			u.email?.toLowerCase().includes(texto) ||
-			u.telefono?.toLowerCase().includes(texto)
-		)
+			/* =========================
+			FILTRO ACTIVOS / BAJAS
+			========================= */
+
+			if (!mostrarBajas && !u.activo) {
+				return false
+			}
+
+			/* =========================
+			FILTRO TEXTO
+			========================= */
+
+			if (!texto) {
+				return true
+			}
+
+			return (
+
+				(u.nombre ?? '').toLowerCase().includes(texto)
+				||
+				(u.apellido ?? '').toLowerCase().includes(texto)
+				||
+				(u.email ?? '').toLowerCase().includes(texto)
+				||
+				(u.telefono ?? '').toLowerCase().includes(texto)
+			)
+		})
 	})
-
 	onMount(() => {
 		cargarUsuarios()
 	})
@@ -59,20 +108,29 @@
 
 	async function cargarUsuarios() {
 
-		cargando = true
+	cargando = true
 
-		const res = await fetch('/api/admin/users')
+	const url =
+		mostrarBajas
+			? '/api/admin/users?incluirBajas=true'
+			: '/api/admin/users'
 
-		const data = await res.json()
+	const res = await fetch(url)
 
-		if (data.error) {
-			mensaje = data.error
-		} else {
-			usuarios = data.usuarios
-		}
+	const data = await res.json()
 
-		cargando = false
+	if (data.error) {
+
+		mensaje = data.error
+
+	} else {
+
+		usuarios = data.usuarios
+
 	}
+
+	cargando = false
+}
 
 	async function crear() {
 
@@ -132,7 +190,8 @@
 					nombre: u.nombre,
 					apellido: u.apellido,
 					telefono: u.telefono,
-					rol: u.rol
+					rol: u.rol,
+					activo: u.activo
 				})
 			}
 		)
@@ -151,34 +210,6 @@
 		alert('✅ Usuario actualizado')
 	}
 
-	async function eliminar(id: string) {
-
-		if (!confirm('¿Eliminar usuario?')) return
-
-		const res = await fetch(
-			`/api/admin/users/${id}`,
-			{
-				method: 'DELETE'
-			}
-		)
-
-		const data = await res.json()
-
-		if (!res.ok) {
-
-			alert(
-				`❌ Error al eliminar:\n${data.error}`
-			)
-
-			return
-		}
-
-		usuarios = usuarios.filter(
-			(u) => u.id !== id
-		)
-
-		alert('🗑️ Usuario eliminado')
-	}
 
 	async function resetPassword(u: Usuario) {
 
@@ -246,6 +277,99 @@
 
 		await cargarUsuarios()
 	}
+
+	/* =========================
+   BAJA LÓGICA
+	========================= */
+
+	async function darBaja(u: Usuario) {
+
+		if (
+			!confirm(
+				`¿Dar de baja al usuario ${u.email}?`
+			)
+		) {
+			return
+		}
+
+		const res = await fetch(
+			`/api/admin/users/${u.id}`,
+			{
+				method: 'PUT',
+
+				headers: {
+					'Content-Type': 'application/json'
+				},
+
+				body: JSON.stringify({
+
+					activo: false,
+
+					fecha_baja:
+						new Date().toISOString()
+				})
+			}
+		)
+
+		const data = await res.json()
+
+		if (!res.ok) {
+
+			alert(
+				`❌ Error:\n${data.error}`
+			)
+
+			return
+		}
+
+		await cargarUsuarios()
+
+		alert(
+			'✅ Usuario dado de baja'
+		)
+	}
+
+	/* =========================
+   	REACTIVAR USUARIO
+	========================= */
+
+	async function reactivar(u: Usuario) {
+
+		const res = await fetch(
+			`/api/admin/users/${u.id}`,
+			{
+				method: 'PUT',
+
+				headers: {
+					'Content-Type': 'application/json'
+				},
+
+				body: JSON.stringify({
+
+					activo: true,
+
+					fecha_baja: null
+				})
+			}
+		)
+
+		const data = await res.json()
+
+		if (!res.ok) {
+
+			alert(
+				`❌ Error:\n${data.error}`
+			)
+
+			return
+		}
+
+		await cargarUsuarios()
+
+		alert(
+			'✅ Usuario reactivado'
+		)
+	}
 </script>
 
 <!-- =========================
@@ -260,19 +384,40 @@
 		👥 Panel de Usuarios
 	</h2>
 
-	<!-- =========================
-	     BUSCADOR
-	========================= -->
 
-	<div class="mb-4">
 
-		<input
-			class="border rounded-lg p-2 w-full md:w-1/3 focus:ring-2 focus:ring-blue-500"
-			placeholder="🔍 Buscar usuario..."
-			bind:value={busqueda}
-		/>
+<!-- =========================
+    BUSCADOR y FILTRO DE BAJAS
+========================= -->
 
-	</div>
+<div class="mb-4 flex items-center justify-between">
+
+	<input
+		class="border rounded-lg p-2 w-full md:w-2/3 focus:ring-2 focus:ring-blue-500"
+		placeholder="🔍 Buscar usuario..."
+		bind:value={busqueda}
+	/>
+
+<div class="ml-4 flex items-center gap-2 whitespace-nowrap">
+
+<input
+	id="mostrar-bajas"
+	type="checkbox"
+	bind:checked={mostrarBajas}
+	onchange={() => cargarUsuarios()}
+	class="h-5 w-5 appearance-auto cursor-pointer"
+/>
+
+	<label
+		for="mostrar-bajas"
+		class="text-sm text-gray-700 cursor-pointer select-none"
+	>
+		Mostrar usuarios dados de baja
+	</label>
+
+</div>
+
+</div>
 
 	<!-- =========================
 	     FORMULARIO
@@ -359,7 +504,7 @@
 
 		{:else}
 
-			<div class="overflow-x-auto">
+			<div class="flex gap-1 justify-center">
 
 				<table class="w-full text-sm">
 
@@ -372,8 +517,10 @@
 							<th class="p-2 text-left">Teléfono</th>
 							<th class="p-2 text-left">Rol</th>
 							<th class="p-2 text-center">Intentos</th>
-							<th class="p-2 text-center">Estado</th>
-							<th class="p-2 text-center">Acciones</th>
+							<th class="p-2 text-center">Bloqueado</th>
+							<th class="p-2 text-center">Baja</th>
+							<th class="p-2 text-center w-48">
+								Acciones</th>
 						</tr>
 
 					</thead>
@@ -450,6 +597,36 @@
 
 								</td>
 
+								<td class="p-2 text-center">
+
+								{#if u.activo}
+
+										<span
+											class="bg-green-100
+											text-green-700
+											px-2 py-1
+											rounded-full
+											text-xs"
+										>
+											Activo
+										</span>
+
+									{:else}
+
+										<span
+											class="bg-red-100
+											text-red-700
+											px-2 py-1
+											rounded-full
+											text-xs"
+										>
+											Baja
+										</span>
+
+									{/if}
+
+								</td>
+
 								<td class="p-2">
 
 									<div class="flex flex-wrap gap-1 justify-center">
@@ -475,12 +652,29 @@
 											🔓
 										</button>
 
-										<button
-											class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-[11px]"
-											onclick={() => eliminar(u.id)}
-										>
-											🗑️
-										</button>
+										{#if u.activo}
+
+											<button
+												class="bg-red-600 hover:bg-red-700
+												text-white px-2 py-1 rounded
+												text-[11px]"
+												onclick={() => darBaja(u)}
+											>
+												🚫
+											</button>
+
+										{:else}
+
+											<button
+												class="bg-green-600 hover:bg-green-700
+												text-white px-2 py-1 rounded
+												text-[11px]"
+												onclick={() => reactivar(u)}
+											>
+												♻️
+											</button>
+
+										{/if}
 
 									</div>
 

@@ -7,7 +7,14 @@ import {
 } from '$env/static/private'
 
 /* =========================================
-   🔐 CLIENTE ADMIN (bypass RLS)
+   🔐 CLIENTE ADMIN (BYPASS RLS)
+   -----------------------------------------
+   Se utiliza exclusivamente en backend.
+
+   Permite:
+   ✔ CRUD perfiles
+   ✔ Reset password
+   ✔ Gestión de usuarios
 ========================================= */
 
 const supabaseAdmin = createClient(
@@ -30,6 +37,7 @@ export const PUT: RequestHandler = async ({
 	========================= */
 
 	if (locals.perfil?.rol !== 'admin') {
+
 		return json(
 			{ error: 'No autorizado' },
 			{ status: 403 }
@@ -39,6 +47,7 @@ export const PUT: RequestHandler = async ({
 	const { id } = params
 
 	if (!id) {
+
 		return json(
 			{ error: 'ID requerido' },
 			{ status: 400 }
@@ -57,7 +66,10 @@ export const PUT: RequestHandler = async ({
 
 	const updateData: Record<string, any> = {}
 
-	// 👤 Datos personales
+	/* =========================
+	   DATOS PERSONALES
+	========================= */
+
 	if (body.nombre !== undefined)
 		updateData.nombre = body.nombre
 
@@ -67,11 +79,17 @@ export const PUT: RequestHandler = async ({
 	if (body.telefono !== undefined)
 		updateData.telefono = body.telefono
 
-	// 🔐 Rol
+	/* =========================
+	   ROL
+	========================= */
+
 	if (body.rol !== undefined)
 		updateData.rol = body.rol
 
-	// 🔓 Desbloqueo
+	/* =========================
+	   BLOQUEO / DESBLOQUEO
+	========================= */
+
 	if (body.bloqueada !== undefined)
 		updateData.bloqueada = body.bloqueada
 
@@ -80,10 +98,37 @@ export const PUT: RequestHandler = async ({
 			body.intentos_fallidos
 
 	/* =========================
+	   BAJA LÓGICA / REACTIVACIÓN
+	========================= */
+
+	if (body.activo !== undefined) {
+
+		updateData.activo = body.activo
+
+		/**
+		 * Usuario dado de baja
+		 */
+		if (body.activo === false) {
+
+			updateData.fecha_baja =
+				new Date().toISOString()
+		}
+
+		/**
+		 * Usuario reactivado
+		 */
+		if (body.activo === true) {
+
+			updateData.fecha_baja = null
+		}
+	}
+
+	/* =========================
 	   VALIDAR UPDATE VACÍO
 	========================= */
 
 	if (Object.keys(updateData).length === 0) {
+
 		return json(
 			{ error: 'Nada para actualizar' },
 			{ status: 400 }
@@ -100,17 +145,32 @@ export const PUT: RequestHandler = async ({
 		.eq('id', id)
 
 	if (error) {
+
 		return json(
 			{ error: error.message },
 			{ status: 500 }
 		)
 	}
 
-	return json({ ok: true })
+	return json({
+		ok: true,
+		message: 'Usuario actualizado'
+	})
 }
 
 /* =========================================
-   🗑️ DELETE USER
+   🚫 BAJA LÓGICA
+   -----------------------------------------
+   NO elimina usuario.
+
+   Actualiza:
+   activo = false
+   fecha_baja = now()
+
+   Conserva:
+   ✔ historial
+   ✔ ingresos/egresos
+   ✔ auditoría
 ========================================= */
 
 export const DELETE: RequestHandler = async ({
@@ -123,6 +183,7 @@ export const DELETE: RequestHandler = async ({
 	========================= */
 
 	if (locals.perfil?.rol !== 'admin') {
+
 		return json(
 			{ error: 'No autorizado' },
 			{ status: 403 }
@@ -132,56 +193,34 @@ export const DELETE: RequestHandler = async ({
 	const { id } = params
 
 	if (!id) {
+
 		return json(
 			{ error: 'ID requerido' },
 			{ status: 400 }
 		)
 	}
 
-	try {
+	const { error } =
+		await supabaseAdmin
+			.from('perfiles')
+			.update({
+				activo: false,
+				fecha_baja: new Date().toISOString()
+			})
+			.eq('id', id)
 
-		/* =========================
-		   1️⃣ ELIMINAR AUTH USER
-		========================= */
-
-		const { error: authError } =
-			await supabaseAdmin.auth.admin.deleteUser(id)
-
-		if (authError) {
-			return json(
-				{ error: authError.message },
-				{ status: 500 }
-			)
-		}
-
-		/* =========================
-		   2️⃣ ELIMINAR PERFIL
-		========================= */
-
-		const { error: perfilError } =
-			await supabaseAdmin
-				.from('perfiles')
-				.delete()
-				.eq('id', id)
-
-		if (perfilError) {
-			return json(
-				{ error: perfilError.message },
-				{ status: 500 }
-			)
-		}
-
-		return json({ ok: true })
-
-	} catch (err) {
-
-		console.error(err)
+	if (error) {
 
 		return json(
-			{ error: 'Error interno' },
+			{ error: error.message },
 			{ status: 500 }
 		)
 	}
+
+	return json({
+		ok: true,
+		message: 'Usuario dado de baja'
+	})
 }
 
 /* =========================================
@@ -199,6 +238,7 @@ export const PATCH: RequestHandler = async ({
 	========================= */
 
 	if (locals.perfil?.rol !== 'admin') {
+
 		return json(
 			{ error: 'No autorizado' },
 			{ status: 403 }
@@ -208,6 +248,7 @@ export const PATCH: RequestHandler = async ({
 	const { id } = params
 
 	if (!id) {
+
 		return json(
 			{ error: 'ID requerido' },
 			{ status: 400 }
@@ -218,9 +259,11 @@ export const PATCH: RequestHandler = async ({
 	   BODY
 	========================= */
 
-	const { password } = await request.json()
+	const { password } =
+		await request.json()
 
 	if (!password) {
+
 		return json(
 			{ error: 'Password requerida' },
 			{ status: 400 }
@@ -231,25 +274,29 @@ export const PATCH: RequestHandler = async ({
 	   UPDATE PASSWORD
 	========================= */
 
-		const result =
-		await supabaseAdmin.auth.admin.updateUserById(id, {
-			password
-		})
+	const result =
+		await supabaseAdmin
+			.auth
+			.admin
+			.updateUserById(id, {
+				password
+			})
 
-		console.log('UPDATE PASSWORD RESULT:')
-		console.dir(result, { depth: null })
+	if (result.error) {
 
-		if (result.error) {
-		console.error('PASSWORD ERROR:')
-		console.error(result.error)
+		console.error(
+			'PASSWORD ERROR:',
+			result.error
+		)
 
 		return json(
 			{ error: result.error.message },
 			{ status: 500 }
 		)
-		}
+	}
 
-		console.log('PASSWORD UPDATED OK')
-
-	return json({ ok: true })
+	return json({
+		ok: true,
+		message: 'Contraseña actualizada'
+	})
 }

@@ -9,6 +9,10 @@ import {
 
 /* =========================================
    🔐 CLIENTE ADMIN
+   -----------------------------------------
+   Service Role:
+   ✔ bypass RLS
+   ✔ CRUD completo
 ========================================= */
 
 const supabaseAdmin = createClient(
@@ -18,21 +22,60 @@ const supabaseAdmin = createClient(
 
 /* =========================================
    📥 GET → LISTAR USUARIOS
+=========================================
+
+   Por defecto:
+   ✔ Solo usuarios activos
+
+   Opcional:
+   ✔ incluirBajas=true
+
+   Ejemplos:
+
+   /api/admin/users
+
+   /api/admin/users?incluirBajas=true
+
 ========================================= */
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({
+	url
+}) => {
 
-	const { data, error } = await supabaseAdmin
-		.from('perfiles')
-		.select('*')
-		.order('creado_en', {
-			ascending: false
-		})
+	const incluirBajas =
+		url.searchParams.get('incluirBajas') === 'true'
+
+	let query =
+		supabaseAdmin
+			.from('perfiles')
+			.select('*')
+
+	/**
+	 * Mostrar únicamente usuarios activos
+	 */
+	if (!incluirBajas) {
+
+		query = query.eq('activo', true)
+
+	}
+
+	const { data, error } =
+		await query.order(
+			'creado_en',
+			{
+				ascending: false
+			}
+		)
 
 	if (error) {
+
 		return json(
-			{ error: error.message },
-			{ status: 500 }
+			{
+				error: error.message
+			},
+			{
+				status: 500
+			}
 		)
 	}
 
@@ -55,9 +98,14 @@ export const POST: RequestHandler = async ({
 	========================= */
 
 	if (locals.perfil?.rol !== 'admin') {
+
 		return json(
-			{ error: 'No autorizado' },
-			{ status: 403 }
+			{
+				error: 'No autorizado'
+			},
+			{
+				status: 403
+			}
 		)
 	}
 
@@ -79,12 +127,15 @@ export const POST: RequestHandler = async ({
 	========================= */
 
 	if (!email || !password) {
+
 		return json(
 			{
 				error:
 					'Email y password requeridos'
 			},
-			{ status: 400 }
+			{
+				status: 400
+			}
 		)
 	}
 
@@ -99,25 +150,39 @@ export const POST: RequestHandler = async ({
 			error: authError
 		} =
 			await supabaseAdmin.auth.admin.createUser({
+
 				email,
 				password,
+
+				/**
+				 * Evita necesidad
+				 * de confirmar email
+				 */
 				email_confirm: true
 			})
 
 		if (authError) {
+
 			return json(
-				{ error: authError.message },
-				{ status: 500 }
+				{
+					error: authError.message
+				},
+				{
+					status: 500
+				}
 			)
 		}
 
 		if (!data.user) {
+
 			return json(
 				{
 					error:
 						'No se pudo crear el usuario'
 				},
-				{ status: 500 }
+				{
+					status: 500
+				}
 			)
 		}
 
@@ -138,7 +203,7 @@ export const POST: RequestHandler = async ({
 				id: data.user.id,
 
 				/* =====================
-				   DATOS USUARIO
+				   DATOS PERSONALES
 				===================== */
 
 				email,
@@ -153,17 +218,33 @@ export const POST: RequestHandler = async ({
 				rol: rol ?? 'viewer',
 
 				intentos_fallidos: 0,
+				bloqueada: false,
 
-				bloqueada: false
+				/* =====================
+				   BAJA LÓGICA
+				===================== */
+
+				activo: true,
+				fecha_baja: null
 			})
 
 		if (perfilError) {
+
+			/**
+			 * Si falla el insert
+			 * sería ideal eliminar
+			 * también el auth user
+			 * para evitar huérfanos.
+			 */
+
 			return json(
 				{
 					error:
 						perfilError.message
 				},
-				{ status: 500 }
+				{
+					status: 500
+				}
 			)
 		}
 
@@ -176,8 +257,12 @@ export const POST: RequestHandler = async ({
 		console.error(err)
 
 		return json(
-			{ error: 'Error interno' },
-			{ status: 500 }
+			{
+				error: 'Error interno'
+			},
+			{
+				status: 500
+			}
 		)
 	}
 }
