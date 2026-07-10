@@ -23,18 +23,32 @@
 	let error = $state('');
 	let cargando = $state(false);
 	let busqueda = $state('');
+	let mostrarBajas = $state(false);
 
 	/* =========================
 	   DERIVED CORRECTO (🔥 CLAVE)
 	========================= */
 
-		let edificiosFiltrados = $derived(
-			busqueda.trim()
-				? data.edificios.filter((e: Edificio) =>
-						e.nombre.toLowerCase().includes(busqueda.toLowerCase())
-				)
-				: data.edificios
-		);
+	let edificiosFiltrados = $derived.by(() => {
+
+		const texto =
+			busqueda.trim().toLowerCase();
+
+		return data.edificios.filter((e) => {
+
+			if (!mostrarBajas && !e.activo) {
+				return false;
+			}
+
+			if (!texto) {
+				return true;
+			}
+
+			return e.nombre
+				.toLowerCase()
+				.includes(texto);
+		});
+	});
 
 	/* =========================
 	   CRUD

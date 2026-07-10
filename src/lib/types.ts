@@ -3,6 +3,8 @@ export interface Edificio {
   nombre: string
   latitud: number
   longitud: number
+  activo: boolean
+  fecha_baja: string | null
   ediqr: string
   direccion: string | null
   creado_en: string
@@ -14,6 +16,8 @@ export interface EdificioForm {
   longitud: string
   //ediqr: string
   direccion: string | null
+  activo: boolean
+  fecha_baja: string | null
 }
 
 
