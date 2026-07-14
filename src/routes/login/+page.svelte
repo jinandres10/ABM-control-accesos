@@ -122,7 +122,7 @@
 <div class="login-wrap">
   <div class="login-card">
 
-    <h1>Control de Accesos</h1>
+    <h1>Panel administrativo</h1>
     <p class="subtitle">Ingresá tus credenciales para continuar</p>
 
     <!-- EMAIL -->

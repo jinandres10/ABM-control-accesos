@@ -42,7 +42,7 @@
 <header class="header">
 
   <div class="brand">
-    Control Accesos
+    Panel administrativo del control de accesos
   </div>
 
   <!-- BOTÓN LOGOUT -->
