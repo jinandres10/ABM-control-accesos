@@ -443,10 +443,11 @@
 			Crear usuario
 		</h3>
 
-		<div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+		
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
 
 			<input
-				class="border rounded-lg p-2 w-full text-sm"
+    			class="border rounded-lg p-2 w-full min-w-0 text-sm"
 				placeholder="Email"
 				bind:value={email}
 			/>
@@ -488,9 +489,22 @@
 		</div>
 
 		<button
-			class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+			class="
+				mt-4
+				w-full
+				md:w-auto
+				bg-blue-600
+				hover:bg-blue-700
+				text-white
+				px-4
+				py-2
+				rounded-lg
+				text-sm
+			"
 			onclick={crear}
 		>
+			
+		
 			➕ Crear usuario
 		</button>
 
@@ -505,10 +519,14 @@
 	</div>
 
 	<!-- =========================
-	     TABLA
+	     TABLA 
+		 <div class="bg-white shadow-lg rounded-2xl overflow-hidden border">
+		 <table class="w-full text-sm">
 	========================= -->
 
-	<div class="bg-white shadow-lg rounded-2xl overflow-hidden border">
+	
+	<div class="bg-white shadow-lg rounded-2xl border overflow-x-auto"
+>
 
 		{#if cargando}
 
@@ -520,7 +538,8 @@
 
 			<div class="flex gap-1 justify-center">
 
-				<table class="w-full text-sm">
+				
+				<table class="min-w-[1100px] text-sm">
 
 					<thead class="bg-gray-100 text-gray-600 text-xs uppercase">
 
