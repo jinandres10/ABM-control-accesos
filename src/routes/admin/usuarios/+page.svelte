@@ -13,7 +13,7 @@
 			apellido: string
 			telefono: string
 
-			rol: 'admin' | 'operador' | 'viewer'
+			rol: 'admin' | 'operador'
 
 			intentos_fallidos: number
 			bloqueada: boolean
@@ -59,7 +59,7 @@
 	let apellido = $state('')
 	let telefono = $state('')
 
-	let rol = $state<'admin' | 'operador' | 'viewer'>('viewer')
+	let rol = $state<'admin' | 'operador'>('operador')
 
 	/* =========================
 	   FILTRO
@@ -185,7 +185,7 @@
 		apellido = ''
 		telefono = ''
 
-		rol = 'viewer'
+		rol = 'operador'
 
 		mensaje = '✅ Usuario creado'
 	}
@@ -404,15 +404,15 @@
     BUSCADOR y FILTRO DE BAJAS
 ========================= -->
 
-<div class="mb-4 flex items-center justify-between">
+<div class="mb-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
 
 	<input
-		class="border rounded-lg p-2 w-full md:w-2/3 focus:ring-2 focus:ring-blue-500"
+		class="border rounded-lg p-2 w-full focus:ring-2 focus:ring-blue-500"
 		placeholder="🔍 Buscar usuario..."
 		bind:value={busqueda}
 	/>
 
-<div class="ml-4 flex items-center gap-2 whitespace-nowrap">
+<div class="flex items-center gap-2">
 
 <input
 	id="mostrar-bajas"
@@ -444,7 +444,7 @@
 		</h3>
 
 		
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
 
 			<input
     			class="border rounded-lg p-2 w-full min-w-0 text-sm"
@@ -478,10 +478,11 @@
 			/>
 
 			<select
-				class="border rounded-lg p-2 w-full text-sm"
-				bind:value={rol}
+
+			class="border rounded-lg p-2 w-full min-w-[130px] text-sm"
+			bind:value={rol}
+
 			>
-				<option value="viewer">Viewer</option>
 				<option value="operador">Operador</option>
 				<option value="admin">Admin</option>
 			</select>
@@ -536,10 +537,10 @@
 
 		{:else}
 
-			<div class="flex gap-1 justify-center">
+			
 
 				
-				<table class="min-w-[1100px] text-sm">
+				<table class="w-full min-w-[950px] text-sm">
 
 					<thead class="bg-gray-100 text-gray-600 text-xs uppercase">
 
@@ -564,8 +565,8 @@
 
 							<tr class="border-t hover:bg-gray-50">
 
-								<td class="p-2">
-									{u.email}
+								<td class="p-2 max-w-[180px] truncate">
+   									 {u.email}
 								</td>
 
 								<td class="p-2">
@@ -601,7 +602,6 @@
 										class="border rounded-md px-2 py-1 w-full text-sm"
 										bind:value={u.rol}
 									>
-										<option value="viewer">viewer</option>
 										<option value="operador">operador</option>
 										<option value="admin">admin</option>
 									</select>
@@ -662,7 +662,7 @@
 
 								<td class="p-2">
 
-									<div class="flex flex-wrap gap-1 justify-center">
+									<div class="flex flex-wrap justify-center gap-1 min-w-[120px]">
 
 										<button
 											class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-[11px]"
@@ -726,8 +726,7 @@
 
 				</table>
 
-			</div>
-
+			
 		{/if}
 
 	</div>
