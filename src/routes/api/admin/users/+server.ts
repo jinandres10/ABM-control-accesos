@@ -119,6 +119,7 @@ export const POST: RequestHandler = async ({
 		nombre,
 		apellido,
 		telefono,
+		doc,
 		rol
 	} = await request.json()
 
@@ -137,6 +138,17 @@ export const POST: RequestHandler = async ({
 				status: 400
 			}
 		)
+	}
+
+	if (doc !== undefined && doc !== null && (!Number.isInteger(Number(doc)) || String(doc).length > 8)) {
+	return json(
+		{
+			error: 'El documento debe ser numérico y tener hasta 8 dígitos.'
+		},
+		{
+			status: 400
+		}
+	)
 	}
 
 	try {
@@ -210,6 +222,7 @@ export const POST: RequestHandler = async ({
 				nombre: nombre ?? '',
 				apellido: apellido ?? '',
 				telefono: telefono ?? '',
+				doc: doc ?? null,
 
 				/* =====================
 				   SEGURIDAD

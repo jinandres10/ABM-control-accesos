@@ -96,6 +96,7 @@
                 // ✅ usamos perfil seguro
                 NOMBRE: perfil?.nombre ?? '',
                 APELLIDO: perfil?.apellido ?? '',
+                DOCUMENTO: perfil?.doc ?? '',
 
                 ID_EDIFICIO: i.id_edificio,
                 NOMBRE_EDIFICIO: i.nombre_edificio,
@@ -109,7 +110,7 @@
                 DISTANCIA_METROS: i.distancia_metros,
 
                 FECHA: i.fecha,
-                HORA: i.hora,
+
 
                 CREADO_EN: formatFecha(i.creado_en),
 
@@ -164,14 +165,28 @@
                 /* =========================
                    FILTRO USUARIO (MEJORADO)
                 ========================= */
+
+
+                const docBusqueda = textoBusqueda.replace(/\D/g, '');
+
                 const cumpleUsuario =
                     !textoBusqueda ||
 
-                    i.usuario?.toLowerCase().includes(textoBusqueda) ||
+                    (i.usuario ?? '')
+                        .toLowerCase()
+                        .includes(textoBusqueda) ||
 
-                    perfil?.nombre?.toLowerCase().includes(textoBusqueda) ||
+                    (perfil?.nombre ?? '')
+                        .toLowerCase()
+                        .includes(textoBusqueda) ||
 
-                    perfil?.apellido?.toLowerCase().includes(textoBusqueda) ||
+                    (perfil?.apellido ?? '')
+                        .toLowerCase()
+                        .includes(textoBusqueda) ||
+
+                    String(perfil?.doc ?? '')
+                        .replace(/\D/g, '')
+                        .includes(docBusqueda) ||
 
                     `${perfil?.nombre ?? ''} ${perfil?.apellido ?? ''}`
                         .toLowerCase()
@@ -217,7 +232,7 @@
 
         <input
             type="text"
-            placeholder="👤 Usuario / Nombre / Apellido"
+            placeholder="👤 Usuario / Nombre / Apellido / Nro. Doc."
             bind:value={filtroUsuario}
         />
 
@@ -252,6 +267,7 @@
                     <th>Usuario</th>
                     <th>Nombre</th>
                     <th>Apellido</th>
+                    <th>Documento</th>
                     <th>Edificio</th>
                     <th>Fecha</th>
                     <th>Distancia</th>
@@ -270,9 +286,10 @@
 
                         <td>{i.usuario}</td>
 
-                        <!-- ✅ YA CORREGIDO -->
+                   
                         <td>{perfil?.nombre ?? '-'}</td>
                         <td>{perfil?.apellido ?? '-'}</td>
+                        <td>{perfil?.doc ?? '-'}</td>
 
                         <td>{i.nombre_edificio}</td>
 

@@ -64,7 +64,7 @@ export const PUT: RequestHandler = async ({
 	   OBJETO UPDATE DINÁMICO
 	========================= */
 
-	const updateData: Record<string, any> = {}
+	const updateData: Record<string, unknown> = {}
 
 	/* =========================
 	   DATOS PERSONALES
@@ -79,6 +79,8 @@ export const PUT: RequestHandler = async ({
 	if (body.telefono !== undefined)
 		updateData.telefono = body.telefono
 
+	if (body.doc !== undefined)
+		updateData.doc = body.doc
 	/* =========================
 	   ROL
 	========================= */
@@ -135,6 +137,21 @@ export const PUT: RequestHandler = async ({
 		)
 	}
 
+	if (
+	body.doc !== undefined &&
+	body.doc !== null &&
+	(!Number.isInteger(Number(body.doc)) ||
+		String(body.doc).length > 10)
+	) {
+		return json(
+			{
+				error: 'El documento debe ser numérico y tener hasta 10 dígitos.'
+			},
+			{
+				status: 400
+			}
+		)
+	}
 	/* =========================
 	   UPDATE PERFIL
 	========================= */

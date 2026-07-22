@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ locals }) => {
             .from('ingreso_egreso')
             .select('*')
             .order('creado_en', { ascending: false })
-            .limit(1000);
+            .limit(10000);
 
     if (errorIngresos) {
         console.error('Error ingresos:', errorIngresos);
@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     const { data: perfiles, error: errorPerfiles } =
         await locals.supabase
             .from('perfiles')
-            .select('id, nombre, apellido');
+            .select('id, nombre, apellido, doc');
 
     if (errorPerfiles) {
         console.error('Error perfiles:', errorPerfiles);
@@ -93,16 +93,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 
     /* =============================
        DEBUG (opcional)
+       console.log(ingresos[0].perfiles);
     ============================= */
-    console.log(
-        'INGRESO CON PERFIL:',
-        JSON.stringify(ingresos?.[0], null, 2)
-    );
-    
-    console.log('PERFILES RAW:', perfiles?.length);
-    console.log(
-     perfiles?.find(p => p.id === '3babc312-a359-42b4-a735-e7ef72a77353')
-    );
+
 
     /* =============================
        6️⃣ OBTENER EDIFICIOS
