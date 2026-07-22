@@ -87,7 +87,7 @@ function irA(ruta: RutaApp) {
   <div>
 
     <h1 class="text-2xl font-bold">
-      Dashboard Control de Accesos
+      ADMINISTRACIÓN
     </h1>
 
     <p class="text-sm text-gray-500">
@@ -157,7 +157,7 @@ function irA(ruta: RutaApp) {
       >
 
         <h2 class="font-semibold text-lg">
-          🔐 Admin Usuarios
+          🔐 Usuarios
         </h2>
 
         <!--
