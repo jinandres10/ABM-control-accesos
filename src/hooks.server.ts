@@ -1,9 +1,6 @@
-import { createServerClient } from '@supabase/ssr'
-import { redirect, type Handle } from '@sveltejs/kit'
-import {
-  PUBLIC_SUPABASE_URL,
-  PUBLIC_SUPABASE_ANON_KEY
-} from '$env/static/public'
+import { createServerClient } from '@supabase/ssr';
+import { redirect, type Handle } from '@sveltejs/kit';
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 
 /**
  * =========================================
@@ -24,12 +21,7 @@ import {
  *   ✔ /edificios/nuevo
  *   ✔ /edificios/123
  */
-const RUTAS_PROTEGIDAS = [
-  '/edificios',
-  '/perfiles',
-  '/ingresos-egresos',
-  '/dashboard'
-]
+const RUTAS_PROTEGIDAS = ['/edificios', '/perfiles', '/ingresos-egresos', '/dashboard', '/admin'];
 
 /**
  * =========================================
@@ -52,8 +44,7 @@ const RUTAS_PROTEGIDAS = [
  * 7️⃣ Exponer datos globales en locals
  */
 export const handle: Handle = async ({ event, resolve }) => {
-
-  /* =========================================
+	/* =========================================
      1️⃣ CREAR CLIENTE SUPABASE SSR
   =========================================
   
@@ -69,93 +60,91 @@ export const handle: Handle = async ({ event, resolve }) => {
      ❌ la sesión NO persiste
      ❌ user queda null
   */
-  event.locals.supabase = createServerClient(
-    PUBLIC_SUPABASE_URL,
-    PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
+	event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
+		cookies: {
+			/**
+			 * =====================================
+			 * LEER COOKIES
+			 * =====================================
+			 */
+			getAll: () => event.cookies.getAll(),
 
-        /**
-         * =====================================
-         * LEER COOKIES
-         * =====================================
-         */
-        getAll: () => event.cookies.getAll(),
+			/**
+			 * =====================================
+			 * ESCRIBIR COOKIES
+			 * =====================================
+			 *
+			 * Supabase usa esto para:
+			 * ✔ access_token
+			 * ✔ refresh_token
+			 * ✔ refresh automático
+			 */
+			setAll: (cookies) => {
+				cookies.forEach(({ name, value, options }) => {
+					event.cookies.set(name, value, {
+						/**
+						 * 🔥 CRÍTICO
+						 * Hace disponible la cookie
+						 * en TODA la aplicación
+						 */
+						path: '/',
 
-        /**
-         * =====================================
-         * ESCRIBIR COOKIES
-         * =====================================
-         *
-         * Supabase usa esto para:
-         * ✔ access_token
-         * ✔ refresh_token
-         * ✔ refresh automático
-         */
-        setAll: (cookies) => {
+						...options
+					});
+				});
+			}
+		}
+	});
 
-          cookies.forEach(({ name, value, options }) => {
-
-            event.cookies.set(name, value, {
-
-              /**
-               * 🔥 CRÍTICO
-               * Hace disponible la cookie
-               * en TODA la aplicación
-               */
-              path: '/',
-
-              ...options
-            })
-          })
-        }
-      }
-    }
-  )
-
-  /* =========================================
+	/* =========================================
      2️⃣ OBTENER SESIÓN
   =========================================
   
-     🔥 BEST PRACTICE:
-     Obtener la sesión UNA sola vez.
+/* =========================================
+   2️⃣ VALIDAR SESIÓN Y USUARIO
+========================================= */
 
-     session:
-       contiene tokens + user
+	/**
+	 * SESSION:
+	 * se utiliza para SSR
+	 */
+	const {
+		data: { session }
+	} = await event.locals.supabase.auth.getSession();
 
-     user:
-       contiene usuario autenticado
-  */
-  const {
-    data: { session }
-  } = await event.locals.supabase.auth.getSession()
+	/**
+	 * USER:
+	 * SIEMPRE validar contra Supabase Auth
+	 * (evita usuarios inconsistentes)
+	 */
+	const {
+		data: { user },
+		error: userError
+	} = await event.locals.supabase.auth.getUser();
+	if (userError) {
+		console.error('Error obteniendo usuario:', userError.message);
+	}
+	/**
+	 * Path actual
+	 * Ej:
+	 * /dashboard
+	 * /edificios
+	 * /admin/usuarios
+	 */
+	const path = event.url.pathname;
 
-  /**
-   * Usuario autenticado actual
-   */
-  const user = session?.user ?? null
-
-  /**
-   * Path actual
-   * Ej:
-   * /dashboard
-   * /edificios
-   * /admin/usuarios
-   */
-  const path = event.url.pathname
-
-  /* =========================================
+	/* =========================================
      3️⃣ REDIRECCIÓN SI YA ESTÁ LOGUEADO
   =========================================
   
      Evita volver al login
      cuando la sesión ya existe.
   */
-  if (user && path === '/login') {
-    throw redirect(303, '/dashboard')
-  }
+	if (user && path === '/login') {
+		throw redirect(303, '/dashboard');
+	}
 
-  /* =========================================
+	/* =========================================
      4️⃣ VALIDAR RUTAS PROTEGIDAS
   =========================================
   
@@ -165,16 +154,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 
      → redireccionar a login
   */
-  const protegida =
-    RUTAS_PROTEGIDAS.some((ruta) =>
-      path.startsWith(ruta)
-    )
+	const protegida = RUTAS_PROTEGIDAS.some((ruta) => path.startsWith(ruta));
 
-  if (protegida && !user) {
-    throw redirect(303, '/login')
-  }
+	if (protegida && !user) {
+		throw redirect(303, '/login');
+	}
 
-  /* =========================================
+	/* =========================================
      5️⃣ CARGAR PERFIL
   =========================================
   
@@ -186,35 +172,27 @@ export const handle: Handle = async ({ event, resolve }) => {
      Relación:
        perfiles.id = auth.users.id
   */
-  let perfil = null
+	let perfil = null;
 
-  if (user) {
+	if (user) {
+		const { data, error } = await event.locals.supabase
+			.from('perfiles')
+			.select('*')
+			.eq('id', user.id)
+			.maybeSingle();
 
-    const { data, error } =
-      await event.locals.supabase
-        .from('perfiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle()
+		if (error) {
+			console.error('Error cargando perfil:', error.message);
 
-    /**
-     * ⚠️ No romper la app
-     * si falla la consulta
-     */
-    if (error) {
+			// A profile read error must not turn a transient database issue into a logout.
+			// The protected-route guard below still prevents access without a valid profile.
+			perfil = null;
+		} else {
+			perfil = data;
+		}
+	}
 
-      console.error(
-        'Error cargando perfil:',
-        error.message
-      )
-
-    } else {
-
-      perfil = data
-    }
-  }
-
-  /* =========================================
+	/* =========================================
      6️⃣ VALIDAR USUARIO BLOQUEADO
   =========================================
   
@@ -222,30 +200,29 @@ export const handle: Handle = async ({ event, resolve }) => {
      un usuario bloqueado
      NO puede acceder.
   */
-  if (perfil?.bloqueada) {
-    throw redirect(303, '/bloqueado')
-  }
+	if (perfil?.bloqueada) {
+		throw redirect(303, '/sin-permiso');
+	}
 
-  /**
- * =========================================
- * 🚫 OPERADOR
- * =========================================
- *
- * Seguridad adicional:
- * si el usuario tiene sesión activa
- * pero es operador,
- * no puede navegar por el panel.
- */
-if (
-  perfil?.rol === 'operador' &&
-  path !== '/login'
-) {
-  throw redirect(
-    303,
-    '/sin-permisos'
-  )
-}
-  /* =========================================
+	/**
+	 * =========================================
+	 * 🚫 OPERADOR
+	 * =========================================
+	 *
+	 * Seguridad adicional:
+	 * si el usuario tiene sesión activa
+	 * pero es operador,
+	 * no puede navegar por el panel.
+	 */
+	if (
+		perfil?.rol === 'operador' &&
+		!path.startsWith('/api/') &&
+		path !== '/login' &&
+		path !== '/sin-permiso'
+	) {
+		throw redirect(303, '/sin-permiso');
+	}
+	/* =========================================
      7️⃣ PROTEGER RUTAS ADMIN
   =========================================
   
@@ -253,18 +230,16 @@ if (
        ✔ login
        ✔ rol = admin
   */
-  if (path.startsWith('/admin')) {
+	if (path.startsWith('/admin')) {
+		if (!user || perfil?.rol !== 'admin') {
+			/**
+			 * Redirección segura
+			 */
+			throw redirect(303, '/');
+		}
+	}
 
-    if (!user || perfil?.rol !== 'admin') {
-
-      /**
-       * Redirección segura
-       */
-      throw redirect(303, '/')
-    }
-  }
-
-  /* =========================================
+	/* =========================================
      8️⃣ GUARDAR DATOS EN LOCALS
   =========================================
   
@@ -275,25 +250,20 @@ if (
      ✔ endpoints API
      ✔ toda la app SSR
   */
-  event.locals.session = session
-  event.locals.user = user
- event.locals.perfil = perfil
+	event.locals.session = session;
+	event.locals.user = user;
+	event.locals.perfil = perfil;
 
-  /* =========================================
+	/* =========================================
      9️⃣ CONTINUAR REQUEST
   =========================================
   
      filterSerializedResponseHeaders:
      requerido por Supabase SSR
   */
-  return resolve(event, {
-
-    filterSerializedResponseHeaders(name) {
-
-      return (
-        name === 'content-range' ||
-        name === 'x-supabase-api-version'
-      )
-    }
-  })
-}
+	return resolve(event, {
+		filterSerializedResponseHeaders(name) {
+			return name === 'content-range' || name === 'x-supabase-api-version';
+		}
+	});
+};

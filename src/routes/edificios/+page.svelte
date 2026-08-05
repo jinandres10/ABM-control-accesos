@@ -1,281 +1,272 @@
 <script lang="ts">
-	import { supabase } from '$lib/supabase';
 	import { invalidateAll } from '$app/navigation';
+	import { supabase } from '$lib/supabase';
 	import type { Edificio, EdificioForm } from '$lib/types';
 	import type { PageData } from './$types';
-	import { browser } from '$app/environment';
 
-	// ✅ Props tipadas
-	const { data } = $props<{ data: PageData }>();
+	const EMPTY_FORM: EdificioForm = { nombre: '', latitud: '', longitud: '', direccion: '' };
+	let { data } = $props<{ data: PageData }>();
 
-	/* =========================
-	   ESTADOS
-	========================= */
-
-	let form = $state<EdificioForm>({
-		nombre: '',
-		latitud: '',
-		longitud: '',
-		direccion: ''
-	});
-
+	let form = $state<EdificioForm>({ ...EMPTY_FORM });
 	let editandoId = $state<string | null>(null);
+	let mensaje = $state('');
 	let error = $state('');
 	let cargando = $state(false);
 	let busqueda = $state('');
 	let mostrarBajas = $state(false);
 
-	/* =========================
-	   DERIVED CORRECTO (🔥 CLAVE)
-	========================= */
-
-	let edificiosFiltrados = $derived.by(() => {
-
-		const texto =
-			busqueda.trim().toLowerCase();
-
-		return data.edificios.filter((e) => {
-
-			if (!mostrarBajas && !e.activo) {
-				return false;
-			}
-
-			if (!texto) {
-				return true;
-			}
-
-			return e.nombre
-				.toLowerCase()
-				.includes(texto);
-		});
+	const edificiosFiltrados = $derived.by(() => {
+		const texto = busqueda.trim().toLocaleLowerCase('es-AR');
+		return data.edificios.filter(
+			(edificio: Edificio) =>
+				(mostrarBajas || edificio.activo) &&
+				(!texto || edificio.nombre.toLocaleLowerCase('es-AR').includes(texto))
+		);
 	});
 
-	/* =========================
-	   CRUD
-	========================= */
+	function validarFormulario(): boolean {
+		const latitud = Number(form.latitud);
+		const longitud = Number(form.longitud);
+		if (!form.nombre.trim() || !form.direccion.trim()) {
+			error = 'Completá el nombre y la dirección.';
+			return false;
+		}
+		if (!Number.isFinite(latitud) || latitud < -90 || latitud > 90) {
+			error = 'Ingresá una latitud válida entre -90 y 90.';
+			return false;
+		}
+		if (!Number.isFinite(longitud) || longitud < -180 || longitud > 180) {
+			error = 'Ingresá una longitud válida entre -180 y 180.';
+			return false;
+		}
+		return true;
+	}
 
 	async function guardar(): Promise<void> {
-		if (!form.nombre || !form.latitud || !form.longitud || !form.direccion) {
-			error = 'Completá todos los campos';
-			return;
-		}
+		error = '';
+		mensaje = '';
+		if (!validarFormulario()) return;
 
 		cargando = true;
-		error = '';
-
 		const payload = {
-			nombre: form.nombre,
-			latitud: parseFloat(form.latitud),
-			longitud: parseFloat(form.longitud),
-			direccion: form.direccion
+			nombre: form.nombre.trim(),
+			latitud: Number(form.latitud),
+			longitud: Number(form.longitud),
+			direccion: form.direccion.trim()
 		};
-
-		if (editandoId) {
-			const { error: err } = await supabase
-				.from('edificios')
-				.update(payload)
-				.eq('id', editandoId);
-
-			if (err) error = err.message;
-		} else {
-			const { error: err } = await supabase
-				.from('edificios')
-				.insert(payload);
-
-			if (err) error = err.message;
-		}
-
+		const { error: requestError } = editandoId
+			? await supabase.from('edificios').update(payload).eq('id', editandoId)
+			: await supabase.from('edificios').insert({ ...payload, activo: true, fecha_baja: null });
 		cargando = false;
 
-		if (!error) {
-			limpiar();
-			await invalidateAll();
-		}
-	}
-
-	function editar(e: Edificio): void {
-		editandoId = e.id;
-
-		form = {
-			nombre: e.nombre,
-			latitud: String(e.latitud),
-			longitud: String(e.longitud),
-			direccion: e.direccion
-		};
-	}
-
-	async function eliminar(id: string): Promise<void> {
-		if (browser && !confirm('¿Eliminar este edificio?')) return;
-
-		const { error: err } = await supabase
-			.from('edificios')
-			.delete()
-			.eq('id', id);
-
-		if (err) {
-			error = err.message;
+		if (requestError) {
+			error = requestError.message;
 			return;
 		}
+		mensaje = editandoId ? 'Edificio actualizado correctamente.' : 'Edificio creado correctamente.';
+		limpiar();
+		await invalidateAll();
+	}
 
+	function editar(edificio: Edificio): void {
+		editandoId = edificio.id;
+		form = {
+			nombre: edificio.nombre,
+			latitud: String(edificio.latitud),
+			longitud: String(edificio.longitud),
+			direccion: edificio.direccion ?? ''
+		};
+		mensaje = '';
+		error = '';
+	}
+
+	async function cambiarEstado(edificio: Edificio): Promise<void> {
+		const activo = !edificio.activo;
+		const accion = activo ? 'reactivar' : 'dar de baja';
+		if (!confirm(`¿Confirmás ${accion} “${edificio.nombre}”?`)) return;
+		const { error: requestError } = await supabase
+			.from('edificios')
+			.update({ activo, fecha_baja: activo ? null : new Date().toISOString() })
+			.eq('id', edificio.id);
+		if (requestError) {
+			error = requestError.message;
+			return;
+		}
+		mensaje = activo ? 'Edificio reactivado.' : 'Edificio dado de baja.';
 		await invalidateAll();
 	}
 
 	function limpiar(): void {
 		editandoId = null;
-		form = { nombre: '', latitud: '', longitud: '', direccion: '' };
+		form = { ...EMPTY_FORM };
 		error = '';
 	}
 
-	function formatFecha(ts: string): string {
-		return new Date(ts).toLocaleDateString('es-AR', {
-			day: '2-digit',
-			month: '2-digit',
-			year: 'numeric'
-		});
+	function formatFecha(fecha: string): string {
+		return new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium' }).format(new Date(fecha));
 	}
 </script>
 
-<div class="page">
-	<h2>🏢 Edificios</h2>
+<section class="page" aria-labelledby="titulo-edificios">
+	<div class="page-heading">
+		<div>
+			<h1 id="titulo-edificios">Edificios</h1>
+			<p>Administrá las ubicaciones habilitadas para registrar accesos.</p>
+		</div>
+	</div>
 
-	<!-- ================= FORM ================= -->
-
-	<div class="form-card">
-		<h3>{editandoId ? 'Editar Edificio' : 'Nuevo Edificio'}</h3>
-
+	<form
+		class="form-card"
+		onsubmit={(event) => {
+			event.preventDefault();
+			guardar();
+		}}
+	>
+		<h2>{editandoId ? 'Editar edificio' : 'Nuevo edificio'}</h2>
 		<div class="form-grid">
-			<input bind:value={form.nombre} placeholder="Nombre del edificio" />
-			<input bind:value={form.latitud} type="number" step="any" placeholder="Latitud" />
-			<input bind:value={form.longitud} type="number" step="any" placeholder="Longitud" />
-			<input bind:value={form.direccion} placeholder="Dirección" />
+			<label
+				>Nombre<input
+					bind:value={form.nombre}
+					required
+					maxlength="120"
+					autocomplete="organization"
+				/></label
+			>
+			<label
+				>Dirección<input
+					bind:value={form.direccion}
+					required
+					maxlength="200"
+					autocomplete="street-address"
+				/></label
+			>
+			<label
+				>Latitud<input
+					bind:value={form.latitud}
+					required
+					type="number"
+					step="any"
+					min="-90"
+					max="90"
+					inputmode="decimal"
+				/></label
+			>
+			<label
+				>Longitud<input
+					bind:value={form.longitud}
+					required
+					type="number"
+					step="any"
+					min="-180"
+					max="180"
+					inputmode="decimal"
+				/></label
+			>
 		</div>
-
-		{#if error}
-			<p class="error">{error}</p>
-		{/if}
-
+		{#if error}<p class="error" role="alert">{error}</p>{/if}
+		{#if mensaje}<p class="success" role="status">{mensaje}</p>{/if}
 		<div class="form-actions">
-			<button onclick={guardar} disabled={cargando}>
-				{cargando ? 'Guardando...' : editandoId ? '💾 Actualizar' : '➕ Agregar'}
-			</button>
-
-			{#if editandoId}
-				<button class="btn-secundario" onclick={limpiar}>
-					Cancelar
-				</button>
-			{/if}
+			<button class="btn-primario" type="submit" disabled={cargando}
+				>{cargando ? 'Guardando…' : editandoId ? 'Guardar cambios' : 'Crear edificio'}</button
+			>
+			{#if editandoId}<button class="btn-secundario" type="button" onclick={limpiar}
+					>Cancelar</button
+				>{/if}
 		</div>
+	</form>
+
+	<div class="list-toolbar">
+		<label class="search-label"
+			>Buscar edificios<input
+				bind:value={busqueda}
+				type="search"
+				placeholder="Nombre del edificio"
+			/></label
+		>
+		<label class="checkbox-label"
+			><input bind:checked={mostrarBajas} type="checkbox" /> Mostrar dados de baja</label
+		>
 	</div>
-
-	<!-- ================= BUSCADOR ================= -->
-
-	<div class="buscador">
-		<input
-			type="text"
-			placeholder="🔍 Buscar edificio por nombre..."
-			bind:value={busqueda}
-		/>
-	</div>
-
-	<!-- ================= TABLA ================= -->
 
 	<div class="table-wrap">
 		<table>
-			<thead>
-				<tr>
-					<th>Nombre</th>
-					<th>Latitud</th>
-					<th>Longitud</th>
-					<th>QR</th>
-					<th>Dirección</th>
-					<th>Creado</th>
-					<th>Acciones</th>
-				</tr>
-			</thead>
-
+			<thead
+				><tr
+					><th>Nombre</th><th>Dirección</th><th>Coordenadas</th><th>Estado</th><th>Creado</th><th
+						><span class="sr-only">Acciones</span></th
+					></tr
+				></thead
+			>
 			<tbody>
-				{#each edificiosFiltrados as e (e.id)}
-					<tr class:editando={editandoId === e.id}>
-						<td>{e.nombre}</td>
-						<td>{e.latitud}</td>
-						<td>{e.longitud}</td>
-
-						<td>
-							<img
-								src={`https://quickchart.io/qr?size=120&text=${e.id}`}
-								alt="QR"
-								class="qr-img"
-							/>
-
-							<div class="qr-actions">
-								<a
-									href={`https://quickchart.io/qr?size=300&text=${e.id}`}
-									target="_blank"
-									download={`QR-${e.nombre}.png`}
-								>
-									⬇️ Descargar
-								</a>
-							</div>
-						</td>
-
-						<td>{e.direccion}</td>
-						<td>{formatFecha(e.creado_en)}</td>
-
-						<td class="acciones">
-							<button class="btn-icono" onclick={() => editar(e)}>✏️</button>
-							<button class="btn-icono danger" onclick={() => eliminar(e.id)}>🗑️</button>
-						</td>
+				{#each edificiosFiltrados as edificio (edificio.id)}
+					<tr class:editando={editandoId === edificio.id}>
+						<td>{edificio.nombre}</td><td>{edificio.direccion ?? '—'}</td><td
+							>{edificio.latitud}, {edificio.longitud}</td
+						>
+						<td
+							><span
+								class:badge-green={edificio.activo}
+								class:badge-red={!edificio.activo}
+								class="badge">{edificio.activo ? 'Activo' : 'Baja'}</span
+							></td
+						>
+						<td>{formatFecha(edificio.creado_en)}</td>
+						<td class="acciones"
+							><button class="btn-secundario" type="button" onclick={() => editar(edificio)}
+								>Editar</button
+							><button class="btn-danger" type="button" onclick={() => cambiarEstado(edificio)}
+								>{edificio.activo ? 'Dar de baja' : 'Reactivar'}</button
+							></td
+						>
 					</tr>
-				{:else}
-					<tr>
-						<td colspan="7" class="vacio">
-							No hay edificios registrados
-						</td>
-					</tr>
-				{/each}
+				{:else}<tr><td class="vacio" colspan="6">No hay edificios para mostrar.</td></tr>{/each}
 			</tbody>
 		</table>
 	</div>
-</div>
+</section>
 
 <style>
-	.qr-img {
-		border-radius: 8px;
-		border: 1px solid #ddd;
-		padding: 4px;
-		background: white;
+	.page-heading,
+	.list-toolbar {
+		display: flex;
+		justify-content: space-between;
+		align-items: end;
+		gap: 1rem;
+		flex-wrap: wrap;
+		margin-bottom: 1.5rem;
 	}
-
-	.qr-actions {
-		margin-top: 6px;
-		font-size: 12px;
-		text-align: center;
+	label {
+		color: var(--color-text);
+		font-size: 0.9rem;
+		font-weight: 600;
 	}
-
-	.qr-actions a {
-		color: #2563eb;
-		text-decoration: none;
+	label input {
+		margin-top: 0.35rem;
 	}
-
-	.qr-actions a:hover {
-		text-decoration: underline;
+	.search-label {
+		width: min(100%, 28rem);
 	}
-
-	.buscador {
-		margin: 20px 0;
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 44px;
 	}
-
-	.buscador input {
-		width: 100%;
-		padding: 10px;
-		border-radius: 8px;
-		border: 1px solid #ddd;
-		font-size: 14px;
+	.checkbox-label input {
+		margin: 0;
 	}
-
-	.buscador input:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+	}
+	@media (max-width: 640px) {
+		.acciones {
+			min-width: 10rem;
+			flex-wrap: wrap;
+		}
 	}
 </style>

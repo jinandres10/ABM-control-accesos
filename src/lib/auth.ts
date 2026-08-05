@@ -11,18 +11,18 @@
 import { supabase } from '$lib/supabase';
 import { goto, invalidateAll } from '$app/navigation';
 
-export async function logout() {
-  try {
-    // 🔴 Cerrar sesión en Supabase (local + cookies)
-    await supabase.auth.signOut();
+/** Cierra la sesión local y vuelve al acceso público. */
+export async function logout(): Promise<void> {
+	try {
+		// 🔴 Cerrar sesión en Supabase (local + cookies)
+		await supabase.auth.signOut();
 
-    // 🔄 Forzar recarga de todos los load()
-    await invalidateAll();
+		// 🔄 Forzar recarga de todos los load()
+		await invalidateAll();
 
-    // 🔁 Redirigir al login
-    await goto('/login');
-
-  } catch (error) {
-    console.error('Error en logout:', error);
-  }
+		// 🔁 Redirigir al login
+		await goto('/login', { invalidateAll: true });
+	} catch (error) {
+		console.error('Error en logout:', error);
+	}
 }

@@ -1,61 +1,61 @@
 <script lang="ts">
-  /**
-   * =====================================================
-   * LAYOUT GLOBAL
-   * -----------------------------------------------------
-   * - Maneja UI global (navbar, logout)
-   * - Sincroniza estado de autenticación
-   * - Reacciona a login/logout automáticamente
-   * =====================================================
-   */
+	import '../app.css';
+	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { logout } from '$lib/auth';
+	import { supabase } from '$lib/supabase';
+	import { onMount } from 'svelte';
+	import type { LayoutData } from './$types';
 
-  import '../app.css';
-  import { logout } from '$lib/auth';
+	let { children, data } = $props<{
+		children: import('svelte').Snippet;
+		data: LayoutData;
+	}>();
 
-  import { supabase } from '$lib/supabase';
-  import { onMount } from 'svelte';
-  import { invalidateAll } from '$app/navigation';
+	// Mantiene los datos SSR sincronizados cuando Supabase renueva o elimina la sesión.
+	onMount(() => {
+		const { data: listener } = supabase.auth.onAuthStateChange(() => {
+			invalidateAll();
+		});
 
-  let { children } = $props();
-
-  /* =========================================
-     🔄 ESCUCHAR CAMBIOS DE AUTH (MUY IMPORTANTE)
-     ========================================= */
-  onMount(() => {
-    const { data: listener } =
-      supabase.auth.onAuthStateChange(() => {
-
-        // 🔄 Fuerza actualización de toda la app
-        // (session, user, layout.ts, etc.)
-        invalidateAll();
-      });
-
-    return () => {
-      listener?.subscription.unsubscribe();
-    };
-  });
+		return () => listener.subscription.unsubscribe();
+	});
 </script>
 
-<!-- =========================================
-     HEADER GLOBAL
-========================================= -->
-<header class="header">
+{#if data.user}
+	<header class="app-header">
+		<a class="brand" href={resolve('/dashboard')}>Control de accesos</a>
+		<button class="logout-btn" type="button" onclick={logout}>Cerrar sesión</button>
+	</header>
+{/if}
 
-  <div class="brand">
-    Panel administrativo del control de accesos
-  </div>
-
-  <!-- BOTÓN LOGOUT -->
-  <button class="logout-btn" onclick={logout}>
-    🔒 Cerrar sesión
-  </button>
-
-</header>
-
-
-<!-- =========================================
-     CONTENIDO PRINCIPAL
-========================================= -->
-<main class="container page">
-  {@render children()}
+<main class:container={Boolean(data.user)} class="page">
+	{@render children()}
 </main>
+
+<style>
+	.app-header {
+		min-height: var(--nav-height);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.75rem
+			max(1rem, env(safe-area-inset-left));
+		background: var(--color-primary);
+		box-shadow: var(--shadow-sm);
+	}
+
+	.brand {
+		color: #fff;
+		font-weight: 700;
+		text-decoration: none;
+	}
+
+	.logout-btn {
+		min-height: 44px;
+		background: transparent;
+		border: 1px solid rgba(255, 255, 255, 0.45);
+		color: #fff;
+	}
+</style>

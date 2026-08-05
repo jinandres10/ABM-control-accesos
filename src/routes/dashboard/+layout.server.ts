@@ -5,7 +5,6 @@
 import { redirect } from '@sveltejs/kit';
 
 export const load = async ({ locals }) => {
-
 	/* =============================
 	   1️⃣ VALIDAR SESIÓN
 	   =============================

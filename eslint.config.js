@@ -4,25 +4,27 @@ import tsParser from '@typescript-eslint/parser';
 import globals from 'globals';
 
 export default [
+	{
+		ignores: ['.svelte-kit/**', '.vercel/**', 'node_modules/**']
+	},
+	js.configs.recommended,
+	...svelte.configs['flat/recommended'],
 
-  js.configs.recommended,
-  ...svelte.configs['flat/recommended'],
+	{
+		files: ['**/*.svelte'],
+		languageOptions: {
+			parserOptions: {
+				parser: tsParser
+			}
+		}
+	},
 
-  {
-    files: ['**/*.svelte'],
-    languageOptions: {
-      parserOptions: {
-        parser: tsParser
-      }
-    }
-  },
-
-  // ✅ ENTORNO NAVEGADOR COMPLETO
-  {
-    languageOptions: {
-      globals: {
-        ...globals.browser
-      }
-    }
-  }
+	// ✅ ENTORNO NAVEGADOR COMPLETO
+	{
+		languageOptions: {
+			globals: {
+				...globals.browser
+			}
+		}
+	}
 ];

@@ -1,57 +1,57 @@
 <script lang="ts">
-	import { onMount } from 'svelte'
-	import { SvelteSet } from 'svelte/reactivity'
+	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	/* =========================
 	   MODELO
 	   (agrego "as const" implícito vía union types para evitar strings sueltos)
 	========================= */
-	type Rol = 'admin' | 'operador'
+	type Rol = 'admin' | 'operador';
 
 	type Usuario = {
-		id: string
-		email: string
-		nombre: string
-		apellido: string
-		telefono: string
-		doc: number | null
-		rol: Rol
-		intentos_fallidos: number
-		bloqueada: boolean
-		creado_en: string
+		id: string;
+		email: string;
+		nombre: string;
+		apellido: string;
+		telefono: string;
+		doc: number | null;
+		rol: Rol;
+		intentos_fallidos: number;
+		bloqueada: boolean;
+		creado_en: string;
 		/* BAJA LÓGICA */
-		activo: boolean
-		fecha_baja: string | null
-	}
+		activo: boolean;
+		fecha_baja: string | null;
+	};
 
 	/* Respuesta genérica esperada de la API para tipar sin usar "any" */
 	type ApiResponse<T = unknown> = {
-		error?: string
-		usuarios?: Usuario[]
-	} & T
+		error?: string;
+		usuarios?: Usuario[];
+	} & T;
 
-	type RequestInit = globalThis.RequestInit
+	type RequestInit = globalThis.RequestInit;
 	/* =========================
 	   STATE PRINCIPAL
 	========================= */
-	let usuarios = $state<Usuario[]>([])
-	let cargando = $state(true)
-	let mensaje = $state('')
-	let busqueda = $state('')
-	let mostrarBajas = $state(false)
+	let usuarios = $state<Usuario[]>([]);
+	let cargando = $state(true);
+	let mensaje = $state('');
+	let busqueda = $state('');
+	let mostrarBajas = $state(false);
 
 	/* =========================
 	   STATE DEL FORMULARIO DE CREACIÓN
 	========================= */
-	let email = $state('')
-	let password = $state('')
-	let nombre = $state('')
-	let apellido = $state('')
-	let telefono = $state('')
-	let rol = $state<Rol>('operador')
+	let email = $state('');
+	let password = $state('');
+	let nombre = $state('');
+	let apellido = $state('');
+	let telefono = $state('');
+	let rol = $state<Rol>('operador');
 	// Se maneja como string porque viene de un <input>, se castea a number recién al enviar
-	let doc = $state('')
-	let creando = $state(false) // evita doble submit mientras se crea el usuario
+	let doc = $state('');
+	let creando = $state(false); // evita doble submit mientras se crea el usuario
 
 	/* =========================
 	   ESTADOS DE CARGA POR FILA
@@ -59,18 +59,18 @@
 	   Esto evita que el usuario haga doble click y dispare pedidos duplicados,
 	   y permite deshabilitar/mostrar spinners por fila sin afectar al resto.
 	========================= */
-	let filasEnProceso = $state<Set<string>>(new Set())
+	let filasEnProceso = $state<Set<string>>(new Set());
 
 	function marcarEnProceso(id: string, activo: boolean) {
 		// Creamos un Set nuevo para que Svelte detecte el cambio de referencia
-	
-		const nuevo = new SvelteSet<string>(filasEnProceso)
+
+		const nuevo = new SvelteSet<string>(filasEnProceso);
 		if (activo) {
-			nuevo.add(id)
+			nuevo.add(id);
 		} else {
-			nuevo.delete(id)
+			nuevo.delete(id);
 		}
-		filasEnProceso = nuevo
+		filasEnProceso = nuevo;
 	}
 
 	/* =========================
@@ -86,22 +86,22 @@
 			const res = await fetch(url, {
 				headers: { 'Content-Type': 'application/json' },
 				...options
-			})
+			});
 			// Si el backend no devuelve JSON válido, evitamos que explote el parseo
-			const data = await res.json().catch(() => ({}))
+			const data = await res.json().catch(() => ({}));
 			if (!res.ok) {
 				return {
 					ok: false,
 					data: { error: data.error ?? 'Error inesperado del servidor', ...data }
-				}
+				};
 			}
-			return { ok: true, data }
+			return { ok: true, data };
 		} catch (error) {
-			console.error('Error de red:', error)
+			console.error('Error de red:', error);
 			return {
 				ok: false,
 				data: { error: 'No se pudo conectar con el servidor' } as ApiResponse<T>
-			}
+			};
 		}
 	}
 
@@ -109,15 +109,15 @@
 	   FILTRO (activos/bajas + búsqueda de texto)
 	========================= */
 	let usuariosFiltrados = $derived.by<Usuario[]>(() => {
-		const texto = busqueda.trim().toLowerCase()
+		const texto = busqueda.trim().toLowerCase();
 		return usuarios.filter((u) => {
 			// Si no se pidió ver bajas, ocultamos los usuarios inactivos
 			if (!mostrarBajas && !u.activo) {
-				return false
+				return false;
 			}
 			// Sin texto de búsqueda, no seguimos filtrando
 			if (!texto) {
-				return true
+				return true;
 			}
 			return (
 				(u.nombre ?? '').toLowerCase().includes(texto) ||
@@ -125,33 +125,31 @@
 				(u.email ?? '').toLowerCase().includes(texto) ||
 				(u.telefono ?? '').toLowerCase().includes(texto) ||
 				String(u.doc ?? '').includes(texto)
-			)
-		})
-	})
+			);
+		});
+	});
 
 	onMount(() => {
-		cargarUsuarios()
-	})
+		cargarUsuarios();
+	});
 
 	/* =========================
 	   API: LISTAR USUARIOS
 	========================= */
 	async function cargarUsuarios() {
-		cargando = true
-		const url = mostrarBajas
-			? '/api/admin/users?incluirBajas=true'
-			: '/api/admin/users'
+		cargando = true;
+		const url = mostrarBajas ? '/api/admin/users?incluirBajas=true' : '/api/admin/users';
 
-		const { ok, data } = await apiRequest<{ usuarios: Usuario[] }>(url)
+		const { ok, data } = await apiRequest<{ usuarios: Usuario[] }>(url);
 
 		if (!ok) {
-			mensaje = data.error ?? 'Error cargando usuarios'
-			cargando = false
-			return
+			mensaje = data.error ?? 'Error cargando usuarios';
+			cargando = false;
+			return;
 		}
 
-		usuarios = data.usuarios ?? []
-		cargando = false
+		usuarios = data.usuarios ?? [];
+		cargando = false;
 	}
 
 	/* =========================
@@ -160,19 +158,19 @@
 	async function crear() {
 		// Validaciones locales antes de pegarle al backend
 		if (!email || !password || !nombre || !doc) {
-			mensaje = 'Completá email, password, documento y nombre'
-			return
+			mensaje = 'Completá email, password, documento y nombre';
+			return;
 		}
 		if (password.length < 6) {
-			mensaje = 'La contraseña debe tener al menos 6 caracteres'
-			return
+			mensaje = 'La contraseña debe tener al menos 6 caracteres';
+			return;
 		}
 		if (Number.isNaN(Number(doc))) {
-			mensaje = 'El documento debe ser numérico'
-			return
+			mensaje = 'El documento debe ser numérico';
+			return;
 		}
 
-		creando = true
+		creando = true;
 		const { ok, data } = await apiRequest('/api/admin/users', {
 			method: 'POST',
 			body: JSON.stringify({
@@ -184,32 +182,32 @@
 				doc: Number(doc), // normalizamos a number para que coincida con el tipo Usuario
 				rol
 			})
-		})
-		creando = false
+		});
+		creando = false;
 
 		if (!ok) {
-			mensaje = data.error ?? 'Error al crear usuario'
-			return
+			mensaje = data.error ?? 'Error al crear usuario';
+			return;
 		}
 
-		await cargarUsuarios()
+		await cargarUsuarios();
 
 		// Reseteo del formulario solo si la creación fue exitosa
-		email = ''
-		password = ''
-		nombre = ''
-		apellido = ''
-		telefono = ''
-		doc = ''
-		rol = 'operador'
-		mensaje = '✅ Usuario creado'
+		email = '';
+		password = '';
+		nombre = '';
+		apellido = '';
+		telefono = '';
+		doc = '';
+		rol = 'operador';
+		mensaje = '✅ Usuario creado';
 	}
 
 	/* =========================
 	   API: GUARDAR CAMBIOS DE UN USUARIO (fila editable)
 	========================= */
 	async function guardar(u: Usuario) {
-		marcarEnProceso(u.id, true)
+		marcarEnProceso(u.id, true);
 		const { ok, data } = await apiRequest(`/api/admin/users/${u.id}`, {
 			method: 'PUT',
 			body: JSON.stringify({
@@ -220,61 +218,61 @@
 				rol: u.rol,
 				activo: u.activo
 			})
-		})
-		marcarEnProceso(u.id, false)
+		});
+		marcarEnProceso(u.id, false);
 
 		if (!ok) {
-			alert(`❌ Error al guardar:\n${data.error}`)
-			return
+			alert(`❌ Error al guardar:\n${data.error}`);
+			return;
 		}
-		alert('✅ Usuario actualizado')
+		alert('✅ Usuario actualizado');
 	}
 
 	/* =========================
 	   API: RESETEAR CONTRASEÑA
 	========================= */
 	async function resetPassword(u: Usuario) {
-		const nueva = prompt(`Nueva contraseña para ${u.email}`)
-		if (!nueva) return
+		const nueva = prompt(`Nueva contraseña para ${u.email}`);
+		if (!nueva) return;
 
 		if (nueva.length < 6) {
-			alert('❌ La contraseña debe tener al menos 6 caracteres')
-			return
+			alert('❌ La contraseña debe tener al menos 6 caracteres');
+			return;
 		}
 
-		marcarEnProceso(u.id, true)
+		marcarEnProceso(u.id, true);
 		const { ok, data } = await apiRequest(`/api/admin/users/${u.id}`, {
 			method: 'PATCH',
 			body: JSON.stringify({ password: nueva })
-		})
-		marcarEnProceso(u.id, false)
+		});
+		marcarEnProceso(u.id, false);
 
 		if (!ok) {
-			alert(`❌ Error al actualizar contraseña:\n${data.error}`)
-			return
+			alert(`❌ Error al actualizar contraseña:\n${data.error}`);
+			return;
 		}
-		alert('🔑 Contraseña actualizada correctamente')
+		alert('🔑 Contraseña actualizada correctamente');
 	}
 
 	/* =========================
 	   API: DESBLOQUEAR USUARIO
 	========================= */
 	async function desbloquear(u: Usuario) {
-		marcarEnProceso(u.id, true)
+		marcarEnProceso(u.id, true);
 		const { ok, data } = await apiRequest(`/api/admin/users/${u.id}`, {
 			method: 'PUT',
 			body: JSON.stringify({
 				bloqueada: false,
 				intentos_fallidos: 0
 			})
-		})
-		marcarEnProceso(u.id, false)
+		});
+		marcarEnProceso(u.id, false);
 
 		if (!ok) {
-			alert(`❌ Error al desbloquear:\n${data.error}`)
-			return
+			alert(`❌ Error al desbloquear:\n${data.error}`);
+			return;
 		}
-		await cargarUsuarios()
+		await cargarUsuarios();
 	}
 
 	/* =========================
@@ -282,47 +280,47 @@
 	========================= */
 	async function darBaja(u: Usuario) {
 		if (!confirm(`¿Dar de baja al usuario ${u.email}?`)) {
-			return
+			return;
 		}
 
-		marcarEnProceso(u.id, true)
+		marcarEnProceso(u.id, true);
 		const { ok, data } = await apiRequest(`/api/admin/users/${u.id}`, {
 			method: 'PUT',
 			body: JSON.stringify({
 				activo: false,
 				fecha_baja: new Date().toISOString()
 			})
-		})
-		marcarEnProceso(u.id, false)
+		});
+		marcarEnProceso(u.id, false);
 
 		if (!ok) {
-			alert(`❌ Error:\n${data.error}`)
-			return
+			alert(`❌ Error:\n${data.error}`);
+			return;
 		}
-		await cargarUsuarios()
-		alert('✅ Usuario dado de baja')
+		await cargarUsuarios();
+		alert('✅ Usuario dado de baja');
 	}
 
 	/* =========================
 	   API: REACTIVAR USUARIO
 	========================= */
 	async function reactivar(u: Usuario) {
-		marcarEnProceso(u.id, true)
+		marcarEnProceso(u.id, true);
 		const { ok, data } = await apiRequest(`/api/admin/users/${u.id}`, {
 			method: 'PUT',
 			body: JSON.stringify({
 				activo: true,
 				fecha_baja: null
 			})
-		})
-		marcarEnProceso(u.id, false)
+		});
+		marcarEnProceso(u.id, false);
 
 		if (!ok) {
-			alert(`❌ Error:\n${data.error}`)
-			return
+			alert(`❌ Error:\n${data.error}`);
+			return;
 		}
-		await cargarUsuarios()
-		alert('✅ Usuario reactivado')
+		await cargarUsuarios();
+		alert('✅ Usuario reactivado');
 	}
 </script>
 
@@ -330,17 +328,13 @@
      CONTENEDOR
 ========================= -->
 <div class="max-w-7xl mx-auto p-6">
-
 	<!-- HEADER -->
-	<h2 class="text-2xl font-bold mb-6 text-gray-800">
-		👥 Panel de Usuarios
-	</h2>
+	<h2 class="text-2xl font-bold mb-6 text-gray-800">👥 Panel de Usuarios</h2>
 
 	<!-- =========================
 	     BUSCADOR y FILTRO DE BAJAS
 	========================= -->
 	<div class="mb-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-
 		<input
 			class="border rounded-lg p-2 w-full focus:ring-2 focus:ring-blue-500"
 			placeholder="🔍 Buscar usuario..."
@@ -355,10 +349,7 @@
 				onchange={() => cargarUsuarios()}
 				class="h-5 w-5 appearance-auto cursor-pointer"
 			/>
-			<label
-				for="mostrar-bajas"
-				class="text-sm text-gray-700 cursor-pointer select-none"
-			>
+			<label for="mostrar-bajas" class="text-sm text-gray-700 cursor-pointer select-none">
 				Mostrar usuarios dados de baja
 			</label>
 		</div>
@@ -368,9 +359,7 @@
 	     FORMULARIO DE CREACIÓN
 	========================= -->
 	<div class="bg-white shadow-lg rounded-2xl p-6 mb-6 border">
-		<h3 class="font-semibold mb-4 text-gray-700">
-			Crear usuario
-		</h3>
+		<h3 class="font-semibold mb-4 text-gray-700">Crear usuario</h3>
 
 		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
 			<input
@@ -406,10 +395,7 @@
 				placeholder="Teléfono"
 				bind:value={telefono}
 			/>
-			<select
-				class="border rounded-lg p-2 w-full min-w-[130px] text-sm"
-				bind:value={rol}
-			>
+			<select class="border rounded-lg p-2 w-full min-w-[130px] text-sm" bind:value={rol}>
 				<option value="operador">Operador</option>
 				<option value="admin">Admin</option>
 			</select>
@@ -520,9 +506,7 @@
 										Activo
 									</span>
 								{:else}
-									<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs">
-										Baja
-									</span>
+									<span class="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs"> Baja </span>
 								{/if}
 							</td>
 							<td class="p-2">

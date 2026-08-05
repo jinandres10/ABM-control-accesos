@@ -1,57 +1,53 @@
 export interface Edificio {
-  id: string
-  nombre: string
-  latitud: number
-  longitud: number
-  activo: boolean
-  fecha_baja: string | null
-  ediqr: string
-  direccion: string | null
-  creado_en: string
+	id: string;
+	nombre: string;
+	latitud: number;
+	longitud: number;
+	activo: boolean;
+	fecha_baja: string | null;
+	ediqr: string;
+	direccion: string | null;
+	creado_en: string;
 }
 
 export interface EdificioForm {
-  nombre: string
-  latitud: string
-  longitud: string
-  //ediqr: string
-  direccion: string | null
-  activo: boolean
-  fecha_baja: string | null
+	nombre: string;
+	latitud: string;
+	longitud: string;
+	direccion: string;
 }
 
-
 export interface Perfil {
-	id: string
+	id: string;
 
-	email: string
+	email: string;
 
-	nombre: string
-	apellido: string
-	telefono: string
+	nombre: string;
+	apellido: string;
+	telefono: string;
+	doc: number | null;
 
-	rol: 'admin' | 'operador' | 'viewer'
+	rol: 'admin' | 'operador' | 'viewer';
 
-	intentos_fallidos: number
-	bloqueada: boolean
+	intentos_fallidos: number;
+	bloqueada: boolean;
 
-	 creado_en: string
+	creado_en: string;
 	/* =========================
 	   BAJA LÓGICA
 	========================= */
 
-	activo: boolean
+	activo: boolean;
 
-	fecha_baja: string | null
- 
+	fecha_baja: string | null;
 }
 
 export interface PerfilForm {
-  nombre: string
-  apellido: string
-  telefono: string
-  email: string
-  rol: 'admin' | 'operador' | 'viewer'
+	nombre: string;
+	apellido: string;
+	telefono: string;
+	email: string;
+	rol: 'admin' | 'operador' | 'viewer';
 }
 
 /* =========================================
@@ -59,7 +55,7 @@ export interface PerfilForm {
 ========================================= */
 
 export interface PerfilIngreso {
-	id: string
+	id: string;
 	nombre: string | null;
 	apellido: string | null;
 }
@@ -71,7 +67,7 @@ export interface IngresoEgreso {
 	usuario: string;
 
 	perfiles?: PerfilIngreso | null;
-	
+
 	id_edificio: string;
 	nombre_edificio: string;
 
@@ -104,9 +100,7 @@ export interface IngresoEgreso {
 
 	timestampcliente: string;
 
-	
-
-  	/* =========================================
+	/* =========================================
 	   RELACIÓN CON EDIFICIOS
 	========================================= */
 
@@ -117,7 +111,6 @@ export interface IngresoEgreso {
 		latitud: number;
 		longitud: number;
 	};
-  
 }
 
 /* =========================================
