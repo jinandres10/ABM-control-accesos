@@ -105,6 +105,11 @@
 	function formatFecha(fecha: string): string {
 		return new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium' }).format(new Date(fecha));
 	}
+
+	/** Genera la URL del QR a partir del identificador único del edificio. */
+	function qrUrl(id: string, size: number): string {
+		return `https://quickchart.io/qr?size=${size}&text=${encodeURIComponent(id)}`;
+	}
 </script>
 
 <section class="page" aria-labelledby="titulo-edificios">
@@ -192,9 +197,9 @@
 		<table>
 			<thead
 				><tr
-					><th>Nombre</th><th>Dirección</th><th>Coordenadas</th><th>Estado</th><th>Creado</th><th
-						><span class="sr-only">Acciones</span></th
-					></tr
+					><th>Nombre</th><th>Dirección</th><th>Coordenadas</th><th>Código QR</th><th>Estado</th><th
+						>Creado</th
+					><th><span class="sr-only">Acciones</span></th></tr
 				></thead
 			>
 			<tbody>
@@ -203,6 +208,21 @@
 						<td>{edificio.nombre}</td><td>{edificio.direccion ?? '—'}</td><td
 							>{edificio.latitud}, {edificio.longitud}</td
 						>
+						<td>
+							<a
+								href={qrUrl(edificio.id, 300)}
+								target="_blank"
+								rel="external noopener noreferrer"
+								download={`QR-${edificio.nombre}.png`}
+								aria-label={`Abrir o descargar el código QR de ${edificio.nombre}`}
+							>
+								<img
+									class="qr-image"
+									src={qrUrl(edificio.id, 120)}
+									alt={`Código QR de ${edificio.nombre}`}
+								/>
+							</a>
+						</td>
 						<td
 							><span
 								class:badge-green={edificio.activo}
@@ -219,7 +239,7 @@
 							></td
 						>
 					</tr>
-				{:else}<tr><td class="vacio" colspan="6">No hay edificios para mostrar.</td></tr>{/each}
+				{:else}<tr><td class="vacio" colspan="7">No hay edificios para mostrar.</td></tr>{/each}
 			</tbody>
 		</table>
 	</div>
@@ -262,6 +282,15 @@
 		overflow: hidden;
 		clip: rect(0, 0, 0, 0);
 		white-space: nowrap;
+	}
+	.qr-image {
+		display: block;
+		width: 72px;
+		height: 72px;
+		padding: 0.25rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: #fff;
 	}
 	@media (max-width: 640px) {
 		.acciones {
